@@ -52,6 +52,7 @@ export const refreshAccessToken = (req, res) => {
 
         res.json({ 
             accessToken: newAccessToken,
+            userId: decoded.id,
             message: 'Token refreshed successfully'
         });
     } catch (error) {
