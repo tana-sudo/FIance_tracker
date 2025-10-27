@@ -4,7 +4,7 @@ dotenv.config();
 
 // Generate access token (short-lived)
 export const generateAccessToken = (payload) => {
-    return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '15m' });
+    return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '8h' });
 };
 
 // Generate refresh token (long-lived)
