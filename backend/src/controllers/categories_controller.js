@@ -73,5 +73,5 @@ const addcategory = async (req, res) => {
             res.status(500).json({ message: 'Internal server error' });
         }   
     };
-    
-export { addcategory, getAllCategories };
+
+export { addcategory, getAllCategories, UpdateCategory, DeleteCategory };
