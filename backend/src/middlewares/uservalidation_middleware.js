@@ -11,6 +11,7 @@ export const validateUser = (req, res, next) => {
 
 export const validate_newUser = (req, res, next) => {
   const { username, fname, email, password } = req.body;
+  
   const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!username || !fname || !email || !password) {

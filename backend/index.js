@@ -1,24 +1,20 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
+import jwt from 'jsonwebtoken';
+import cors from 'cors';
+import { generateAccessToken, generateRefreshToken, verifyToken, refreshAccessToken } from '../backend/src/middlewares/auth_middleware.js';  
+import userRoutes from '../backend/src/routes/user_routes.js';   
 dotenv.config();
 const app = express();
-
+app.use(cors());
 const port = process.env.PORT;
 app.use(bodyParser.json());
 app.use(express.json());
 
-app.get('/data', (req, res) => {
-    const data = "Sample data from server";
-    console.log('Received data:', data);
-    res.status(200).send('Data received');
-});
 
-app.post('/inserdata', (req, res) => {
-    const data = "tanatswa";
-    console.log('Received data:', data);
-    res.status(200).send('Data received');
-});
+app.use('/api/users', userRoutes);
+
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });

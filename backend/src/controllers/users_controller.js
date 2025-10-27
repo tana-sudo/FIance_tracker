@@ -1,6 +1,7 @@
-import pool from '../config/db_config.js';
+import pool from '../config/db.js';
 
 // Create a new user
+
 export const insertUserData = async (name, email, hashedPassword, role = 'user') => {
     const result = await pool.query(
         `INSERT INTO users (name, email, password, role)
