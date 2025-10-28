@@ -1,9 +1,9 @@
 import express from 'express';
-import { getTransactions, addTransaction, updateTransaction, deleteTransaction } from '../controllers/transactions_controller.js';
+import { getUserTransactions, addTransaction, updateTransaction, removeTransaction } from '../controllers/transactions_controller.js';
 const router = express.Router();
-router.get('/transactions', getTransactions);
+router.get('/transactions/:user_id', getUserTransactions);
 router.post('/addTransaction', addTransaction);
-router.put('/updateTransaction/:id', updateTransaction);
-router.delete('/deleteTransaction/:id', deleteTransaction);
+router.put('/updateTransaction/:transaction_id', updateTransaction);
+router.delete('/deleteTransaction/:transaction_id', removeTransaction);
 
 export default router;
