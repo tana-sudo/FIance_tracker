@@ -1,20 +1,26 @@
 import con from '../config/db.js';
-// Create table automatically if it doesn't exist
-(async () => {
+
+const checkAndCreateCategoriesTable = async () => {
     const createTableQuery = `
-        CREATE TABLE IF NOT EXISTS Category (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(100) NOT NULL,
-            email VARCHAR(100) UNIQUE NOT NULL,
-            password VARCHAR(255) NOT NULL,
-            role VARCHAR(20) DEFAULT 'user',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        CREATE TABLE IF NOT EXISTS categories (
+            category_id SERIAL PRIMARY KEY,
+            user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            name VARCHAR(50) NOT NULL,
+            type VARCHAR(10) NOT NULL CHECK (type IN ('income', 'expense')),
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
         );
     `;
+    
     try {
         await con.query(createTableQuery);
-        console.log('Category table is ready');
+        console.log(' Categories table is ready');
     } catch (error) {
-        console.error('Error creating Category table:', error.message);
+        console.error('Error creating categories table:', error.message);
     }
-})();
+};
+
+// Execute the function
+checkAndCreateCategoriesTable();
+
+export { checkAndCreateCategoriesTable };
