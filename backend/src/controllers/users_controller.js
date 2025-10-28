@@ -1,40 +1,9 @@
-import pool from '../config/db.js';
+import {
+  insertUserData,
+  update_User,
+  deleteUser
+} from '../models/user_model.js';
 import bcrypt from 'bcryptjs';
-// Create a new user
-
-const insertUserData = async (username,fname, email, hashedPassword, role = 'user') => {
-    const result = await pool.query(
-        `INSERT INTO users (username,name, email, password, role)
-         VALUES ($1, $2, $3, $4 ,$5)
-         RETURNING id, username ,name, email, role, created_at`,
-        [username,fname, email, hashedPassword, role]
-    );
-    return result.rows[0];
-};
-
-// Get all users
-export const getAllUsers = async () => {
-    const result = await pool.query('SELECT id, name, email, role, created_at FROM users ORDER BY id ASC');
-    return result.rows;
-};
-
-const update_User = async (id,name, email, role) => {
-    const result = await pool.query(
-        `UPDATE users
-         SET name = $1, email = $2
-         WHERE id = $3
-         RETURNING id, name, email, role, created_at`,
-        [name,email,  id]
-    );
-    return result.rows[0];
-};
-
-// Delete a user (admin use)
-export const deleteUser = async (id) => {
-    const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id, name, email, role', [id]);
-    return result.rows[0];
-};
-
 // Register a new user
 export const registerUser = async (req, res) => {
   try {

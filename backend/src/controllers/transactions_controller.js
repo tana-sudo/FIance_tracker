@@ -1,86 +1,72 @@
-import pool from '../config/db.js';
-import bcrypt from 'bcryptjs';
-// Create a new user
 
-const insertUserData = async (username,fname, email, hashedPassword, role = 'user') => {
-    const result = await pool.query(
-        `INSERT INTO users (username,name, email, password, role)
-         VALUES ($1, $2, $3, $4 ,$5)
-         RETURNING id, username ,name, email, role, created_at`,
-        [username,fname, email, hashedPassword, role]
-    );
-    return result.rows[0];
-};
+import {
+  insertTransaction,
+  getTransactionsByUser,
+  updateTransactionData,
+  deleteTransactionData
+} from '../models/transactions_model.js';
 
-// Get all users
-export const getAllUsers = async () => {
-    const result = await pool.query('SELECT id, name, email, role, created_at FROM users ORDER BY id ASC');
-    return result.rows;
-};
 
-const update_User = async (id,name, email, role) => {
-    const result = await pool.query(
-        `UPDATE users
-         SET name = $1, email = $2
-         WHERE id = $3
-         RETURNING id, name, email, role, created_at`,
-        [name,email,  id]
-    );
-    return result.rows[0];
-};
 
-// Delete a user (admin use)
-export const deleteUser = async (id) => {
-    const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id, name, email, role', [id]);
-    return result.rows[0];
-};
-
-// Register a new user
-export const registerUser = async (req, res) => {
+// Add new transaction
+export const addTransaction = async (req, res) => {
   try {
-    const { username, fname, email, password, role } = req.body;
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const { user_id, amount, type, category_id, description, date } = req.body;
 
-    // Insert user
-    const newUser = await insertUserData(username, fname, email, hashedPassword, role);
+    if (!user_id || !amount || !type || !date) {
+      return res.status(400).json({ error: 'user_id, amount, type, and date are required.' });
+    }
 
-    // ✅ Return clean JSON
-    return res.status(201).json(newUser);
+    const newTransaction = await insertTransaction(user_id, amount, type, category_id, description, date);
+    return res.status(201).json(newTransaction);
   } catch (error) {
-    console.error("❌ Error registering user:", error.message);
-    return res.status(500).json({ error: "Internal server error" });
+    console.error('❌ Error adding transaction:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
-export const updateUser = async (req, res) => {
+// Get all transactions for a user
+export const getUserTransactions = async (req, res) => {
   try {
-    const id = req.params.id;
-    const { username, fname, email, role } = req.body;
-    
-    //update details
-    const upUser = await update_User(id,username, fname, email, role);
-
-    // ✅ Return clean JSON
-    return res.status(200).json(upUser);
+    const user_id = req.params.user_id;
+    const transactions = await getTransactionsByUser(user_id);
+    return res.status(200).json(transactions);
   } catch (error) {
-    console.error("❌ Error updating user:", error.message);
-    return res.status(500).json({ error: "Internal server error" });
+    console.error('❌ Error fetching transactions:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
-export const removeUser = async (req, res) => {
+// Update transaction
+export const updateTransaction = async (req, res) => {
   try {
-    const id = req.params.id;
-    //update details
-    const del_User = await deleteUser(id);
+    const transaction_id = req.params.transaction_id;
+    const { amount, type, category_id, description, date } = req.body;
 
-    // ✅ Return clean JSON
-    return res.status(200).json(del_User);
+    const updatedTransaction = await updateTransactionData(transaction_id, amount, type, category_id, description, date);
+    if (!updatedTransaction) {
+      return res.status(404).json({ error: 'Transaction not found.' });
+    }
+
+    return res.status(200).json(updatedTransaction);
   } catch (error) {
-    console.error("❌ Error deleting user:", error.message);
-    return res.status(500).json({ error: "Internal server error" });
+    console.error('❌ Error updating transaction:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
+// Delete transaction
+export const removeTransaction = async (req, res) => {
+  try {
+    const transaction_id = req.params.transaction_id;
+    const deletedTransaction = await deleteTransactionData(transaction_id);
+    if (!deletedTransaction) {
+      return res.status(404).json({ error: 'Transaction not found.' });
+    }
 
+    return res.status(200).json(deletedTransaction);
+  } catch (error) {
+    console.error('❌ Error deleting transaction:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
