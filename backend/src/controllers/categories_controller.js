@@ -29,7 +29,7 @@ export const addCategory = async (req, res) => {
 // Get all categories for a user
 export const getUserCategories = async (req, res) => {
   try {
-    const user_id = req.params.user_id;
+    user_id = req.params.user_id;
     const categories = await getCategoriesByUser(user_id);
     return res.status(200).json(categories);
   } catch (error) {
