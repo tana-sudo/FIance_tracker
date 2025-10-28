@@ -1,5 +1,4 @@
-import con from '../config/db.js';
-
+import pool from '../config/db.js';
 const checkAndCreateTable = async () => {
     const createTableQuery = `
         CREATE TABLE IF NOT EXISTS users (
@@ -13,7 +12,7 @@ const checkAndCreateTable = async () => {
         );
     `;
     try {
-        await con.query(createTableQuery);
+        await pool.query(createTableQuery);
         console.log('Users table is ready');
     } catch (error) {
         console.error('Error creating users table:', error.message);

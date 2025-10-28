@@ -1,3 +1,4 @@
+import pool from '../config/db.js';
 import {
   insertUserData,
   update_User,
