@@ -24,7 +24,7 @@ export const verifyToken = (req, res, next) => {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded; // contains { id, email, role }
+        req.user = { id: decoded.id, email: decoded.email, role: decoded.role }; // attach user info // contains { id, email, role }
         next();
     } catch (error) {
         if (error.name === 'TokenExpiredError') {

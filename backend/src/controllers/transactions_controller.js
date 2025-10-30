@@ -11,8 +11,8 @@ import {
 // Add new transaction
 export const addTransaction = async (req, res) => {
   try {
-    const { user_id, amount, type, category_id, description, date } = req.body;
-
+    const { amount, type, category_id, description, date } = req.body;
+    const user_id = req.user?.id;
     if (!user_id || !amount || !type || !date) {
       return res.status(400).json({ error: 'user_id, amount, type, and date are required.' });
     }
@@ -28,7 +28,7 @@ export const addTransaction = async (req, res) => {
 // Get all transactions for a user
 export const getUserTransactions = async (req, res) => {
   try {
-    const user_id = req.params.user_id;
+    const user_id = req.user?.id;
     const transactions = await getTransactionsByUser(user_id);
     return res.status(200).json(transactions);
   } catch (error) {
