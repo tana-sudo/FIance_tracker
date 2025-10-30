@@ -16,14 +16,15 @@ export const generateRefreshToken = (payload) => {
 export const verifyToken = (req, res, next) => {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith('Bearer '))
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ message: 'Access denied. No token provided' });
+    }
 
     const token = authHeader.split(' ')[1];
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded; // contains { id, email }
+        req.user = decoded; // contains { id, email, role }
         next();
     } catch (error) {
         if (error.name === 'TokenExpiredError') {
@@ -44,10 +45,11 @@ export const refreshAccessToken = (req, res) => {
     try {
         const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
         
-        // Generate new access token
+        // Generate new access token with same payload structure
         const newAccessToken = generateAccessToken({ 
             id: decoded.id, 
-            email: decoded.email 
+            email: decoded.email,
+            role: decoded.role
         });
 
         res.json({ 
@@ -63,19 +65,17 @@ export const refreshAccessToken = (req, res) => {
     }
 };
 
-// Optional: Verify refresh token middleware (for protected refresh endpoints)
-export const verifyRefreshToken = (req, res, next) => {
-    const { refreshToken } = req.body;
+// Optional: Role-based authorization middleware
+export const authorizeRole = (...allowedRoles) => {
+    return (req, res, next) => {
+        if (!req.user || !req.user.role) {
+            return res.status(403).json({ message: 'Access denied. No role found' });
+        }
 
-    if (!refreshToken) {
-        return res.status(401).json({ message: 'Refresh token required' });
-    }
+        if (!allowedRoles.includes(req.user.role)) {
+            return res.status(403).json({ message: 'Access denied. Insufficient permissions' });
+        }
 
-    try {
-        const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-        req.user = decoded;
         next();
-    } catch (error) {
-        return res.status(403).json({ message: 'Invalid or expired refresh token' });
-    }
+    };
 };
