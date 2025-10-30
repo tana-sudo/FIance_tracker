@@ -63,4 +63,20 @@ export const removeBudget = async (req, res) => {
   }
 };
 
+export const getBudgetSummary = async (req, res) => {
+  try {
+    const user_id = req.user?.id;
+    const { month, year } = req.query;
+
+    if (!month || !year) {
+      return res.status(400).json({ message: 'Month and year are required' });
+    }
+
+    const budgets = await getBudgetsWithSummary(user_id, month, year);
+    res.status(200).json(budgets);
+  } catch (error) {
+    console.error('❌ Error fetching budget summary:', error.message);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
 
