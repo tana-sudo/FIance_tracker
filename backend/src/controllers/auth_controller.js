@@ -2,9 +2,11 @@ import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import {
-  findUserByEmail
+  findUserByEmail,
+  loginUserByEmail
 } from '../models/user_model.js';
 import { generateAccessToken, generateRefreshToken } from '../middlewares/auth_middleware.js';
+
 dotenv.config();
 // Login User
 export const loginUser = async (req, res) => {
@@ -28,6 +30,11 @@ export const loginUser = async (req, res) => {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
+
+        const loggedInUser = await loginUserByEmail(email, user.password);
+        if (!loggedInUser) {
+            return res.status(401).json({ message: 'Invalid credentials' });
+        }       
         // Generate tokens with consistent payload
         const payload = { id: user.id, email: user.email, role: user.role };
         const accessToken = generateAccessToken(payload);

@@ -31,7 +31,7 @@ export const registerUser = async (req, res) => {
         const newUser = await insertUserData(username, fname, email, hashedPassword, role, gender, dob);
 
         // Generate tokens
-        const payload = { id: newUser.id, email: newUser.email, role: newUser.role };
+       const payload = { id: newUser.id, email: newUser.email, role: newUser.role };
         const accessToken = generateAccessToken(payload);
         const refreshToken = generateRefreshToken(payload);
 

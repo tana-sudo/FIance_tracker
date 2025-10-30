@@ -26,16 +26,15 @@ checkAndCreateTable();
 
 export default { checkAndCreateTable };
 
-export const insertUserData = async (username,fname, email, hashedPassword, role = 'user', gender , dob) => {
+export const insertUserData = async (username, fname, email, hashedPassword, role = 'user', gender, dob) => {
     const result = await pool.query(
-        `INSERT INTO users (username,name, email, password, role , gender , dob)
-         VALUES ($1, $2, $3, $4 ,$5 , $6 , $7)
-         RETURNING id, username ,name, email, role, , gender , dob ,created_at`,
-        [username,fname, email, hashedPassword, role , gender , dob]
+        `INSERT INTO users (username, name, email, password, role, gender, dob)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id, username, name, email, role, gender, dob, created_at`,
+        [username, fname, email, hashedPassword, role, gender, dob]
     );
     return result.rows[0];
 };
-
 // Get all users
 export const getAllUsers = async () => {
     const result = await pool.query('SELECT id, name, email, role, created_at FROM users ORDER BY id ASC');
@@ -68,3 +67,8 @@ export const findUserByUsername = async (username) => {
   const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
   return result.rows[0];
 };
+
+export const loginUserByEmail = async (email ,password) => {
+  const result = await pool.query('SELECT * FROM users WHERE email = $1 AND password = $2', [email , password]);
+  return result.rows[0];
+}
