@@ -30,15 +30,9 @@ export const registerUser = async (req, res) => {
         // Insert user
         const newUser = await insertUserData(username, fname, email, hashedPassword, role, gender, dob);
 
-        // Generate tokens
-       const payload = { id: newUser.id, email: newUser.email, role: newUser.role };
-        const accessToken = generateAccessToken(payload);
-        const refreshToken = generateRefreshToken(payload);
-
+        // ✅ Return clean JSON
         return res.status(201).json({
             message: 'User registered successfully',
-            accessToken,
-            refreshToken,
             user: {
                 id: newUser.id,
                 username: newUser.username,

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 //import { motion } from "framer-motion";
+import { motion } from "motion/react"
 import { LogOut } from "lucide-react";
 
 export default function Dashboard() {
@@ -53,6 +54,10 @@ export default function Dashboard() {
         </div>
 
         <div className="space-y-4 text-gray-700">
+          <div className="p-3 bg-gray-50 rounded-md">
+            <span className="font-medium text-gray-500">Id: </span>
+            {user.id}
+          </div>
           <div className="p-3 bg-gray-50 rounded-md">
             <span className="font-medium text-gray-500">Full Name: </span>
             {user.name}
