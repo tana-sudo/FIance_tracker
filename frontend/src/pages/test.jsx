@@ -1,397 +1,236 @@
-import React, { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { 
+  LayoutDashboard, 
+  ArrowUpDown, 
+  Target, 
+  Tag, 
+  FileText, 
+  LogOut,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  Receipt
+} from "lucide-react";
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
-export default function AuthPage() {
-  const [isLogin, setIsLogin] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({});
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [touched, setTouched] = useState({});
+export default function Dashboard() {
+  const [user, setUser] = useState(null);
+  const [activeTab, setActiveTab] = useState("Last 30 Days");
 
-  const API_BASE = "http://localhost:3000/api";
+  useEffect(() => {
+    const userData = localStorage.getItem("user");
+    const token = localStorage.getItem("accessToken");
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: "" }));
-    }
-  };
-
-  const handleBlur = (e) => {
-    const { name } = e.target;
-    setTouched(prev => ({ ...prev, [name]: true }));
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-
-    if (!formData.email) {
-      newErrors.email = "Email is required";
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "Email is invalid";
-    }
-
-    if (!formData.password) {
-      newErrors.password = "Password is required";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
-    }
-
-    if (!isLogin) {
-      if (!formData.fname || formData.fname.trim().length < 2) {
-        newErrors.fname = "Full name is required (minimum 2 characters)";
-      }
-
-      if (!formData.username || formData.username.trim().length < 3) {
-        newErrors.username = "Username is required (minimum 3 characters)";
-      }
-
-      if (!formData.dob) {
-        newErrors.dob = "Date of birth is required";
-      } else {
-        const age = new Date().getFullYear() - new Date(formData.dob).getFullYear();
-        if (age < 13) {
-          newErrors.dob = "You must be at least 13 years old";
-        }
-      }
-
-      if (!formData.gender) {
-        newErrors.gender = "Please select a gender";
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setMessage("");
-
-    if (!validateForm()) {
-      setMessage("Please fix the errors below");
+    if (!userData || !token) {
+      window.location.href = "/";
       return;
     }
 
-    setLoading(true);
-
     try {
-      const endpoint = isLogin 
-        ? `${API_BASE}/auth/login` 
-        : `${API_BASE}/users/register`;
-      
-      const payload = isLogin 
-        ? { 
-            email: formData.email, 
-            password: formData.password 
-          }
-        : { 
-            username: formData.username,
-            fname: formData.fname,
-            email: formData.email,
-            password: formData.password,
-            gender: formData.gender,
-            dob: formData.dob,
-            role: 'user'
-          };
-
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.error ||"email or password is wrong " || "Something went wrong");
-
-      setMessage(data.message || "Success!");
-
-      if (isLogin && data.accessToken) {
-        localStorage.setItem("accessToken", data.accessToken);
-        localStorage.setItem("refreshToken", data.refreshToken);
-        localStorage.setItem("user", JSON.stringify(data.user));
-        
-        setMessage("Login successful! Redirecting...");
-        
-        setTimeout(() => {
-          window.location.href = "/dashboard";
-        }, 1000);
-      } else if (!isLogin) {
-        setMessage("Account created successfully! Please login.");
-        setTimeout(() => {
-          setIsLogin(true);
-          setFormData({});
-          setErrors({});
-          setTouched({});
-          setMessage("");
-        }, 2000);
-      }
-    } catch (err) {
-      setMessage(err.message);
-    } finally {
-      setLoading(false);
+      setUser(JSON.parse(userData));
+    } catch (error) {
+      console.error("Error parsing user data:", error);
+      window.location.href = "/";
     }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("user");
+    window.location.href = "/";
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-lg p-8">
-        <h2 className="text-3xl font-bold text-center text-gray-900 mb-2">
-          Euna
-        </h2>
-        <p className="text-center text-gray-500 mb-6">
-          Manage your finances with ease
-        </p>
+  // Sample data for charts
+  const incomeExpenseData = [
+    { name: 'Jan', income: 400, expenses: 240 },
+    { name: 'Feb', income: 300, expenses: 139 },
+    { name: 'Mar', income: 200, expenses: 980 },
+    { name: 'Apr', income: 278, expenses: 390 },
+    { name: 'May', income: 189, expenses: 480 },
+    { name: 'Jun', income: 0, expenses: 600 },
+  ];
 
-        <div className="flex mb-6 bg-gray-100 rounded-lg p-1">
+  const categoryData = [
+    { name: 'Healthcare', value: 600, color: '#3B82F6' },
+    { name: 'Food', value: 300, color: '#10B981' },
+    { name: 'Transport', value: 200, color: '#F59E0B' },
+    { name: 'Entertainment', value: 150, color: '#EF4444' },
+  ];
+
+  const navItems = [
+    { name: 'Dashboard', icon: LayoutDashboard, active: true },
+    { name: 'Transactions', icon: ArrowUpDown, active: false },
+    { name: 'Budgets', icon: Target, active: false },
+    { name: 'Categories', icon: Tag, active: false },
+    { name: 'Reports', icon: FileText, active: false },
+  ];
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-gray-600">Loading...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-screen bg-gray-50">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
+        {/* Logo/Brand */}
+       
+
+        {/* Navigation */}
+        <nav className="flex-1 p-4">
+          {navItems.map((item) => (
+            <button
+              key={item.name}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors ${
+                item.active
+                  ? 'bg-blue-50 text-blue-600'
+                  : 'text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <item.icon size={20} />
+              <span className="font-medium">{item.name}</span>
+            </button>
+          ))}
+        </nav>
+
+        {/* Sign Out */}
+        <div className="p-4 border-t border-gray-200">
           <button
-            onClick={() => {
-              setIsLogin(true);
-              setFormData({});
-              setErrors({});
-              setTouched({});
-              setMessage("");
-            }}
-            className={`w-1/2 py-2.5 text-sm font-medium rounded-md transition-all ${
-              isLogin
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
           >
-            Login
-          </button>
-          <button
-            onClick={() => {
-              setIsLogin(false);
-              setFormData({});
-              setErrors({});
-              setTouched({});
-              setMessage("");
-            }}
-            className={`w-1/2 py-2.5 text-sm font-medium rounded-md transition-all ${
-              !isLogin
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-          >
-            Sign Up
+            <LogOut size={20} />
+            <span className="font-medium">Sign Out</span>
           </button>
         </div>
+      </aside>
 
-        {message && (
-          <div
-            className={`text-center text-sm mb-4 ${
-              message.includes("Success") || message.includes("successful")
-                ? "text-green-600"
-                : "text-red-500"
-            }`}
-          >
-            {message}
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto">
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 px-8 py-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900">Dashboard</h2>
+              <p className="text-gray-600 mt-1">Welcome back {user.fname || user.username}! 👋 Here's your financial overview.</p>
+         
+          
+            </div>
+            <div className="flex gap-2">
+              {['Last 30 Days', 'Last 60 Days', 'All Time'].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === tab
+                      ? 'bg-blue-100 text-blue-600'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
           </div>
-        )}
+        </div>
 
-        {isLogin ? (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1.5">
-                Email
-              </label>
-              <input
-                name="email"
-                type="email"
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="you@example.com"
-                value={formData.email || ""}
-                className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900 bg-gray-50 ${
-                  errors.email && touched.email ? "border-red-500" : "border-gray-300"
-                }`}
-              />
-              {errors.email && touched.email && (
-                <p className="text-red-500 text-xs mt-1">{errors.email}</p>
-              )}
+        {/* Content */}
+        <div className="p-8">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {/* Total Income */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-gray-600 text-sm font-medium">Total Income</span>
+                <TrendingUp className="text-green-500" size={20} />
+              </div>
+              <p className="text-3xl font-bold text-green-500">BWP 0.00</p>
+              <p className="text-xs text-gray-500 mt-1">Last 30 days</p>
             </div>
 
-            <div className="relative">
-              <label className="block text-sm font-medium text-gray-900 mb-1.5">
-                Password
-              </label>
-              <input
-                name="password"
-                type={showPassword ? "text" : "password"}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="Enter your password"
-                value={formData.password || ""}
-                className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900 bg-gray-50 pr-10 ${
-                  errors.password && touched.password ? "border-red-500" : "border-gray-300"
-                }`}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-9 text-gray-500 hover:text-gray-700"
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-              {errors.password && touched.password && (
-                <p className="text-red-500 text-xs mt-1">{errors.password}</p>
-              )}
+            {/* Total Expenses */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-gray-600 text-sm font-medium">Total Expenses</span>
+                <TrendingDown className="text-red-500" size={20} />
+              </div>
+              <p className="text-3xl font-bold text-red-500">BWP 600.00</p>
+              <p className="text-xs text-gray-500 mt-1">Last 30 days</p>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium transition-colors disabled:opacity-50 mt-6"
-            >
-              {loading ? "Signing in..." : "Sign In"}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1.5">
-                Full Name
-              </label>
-              <input
-                name="fname"
-                type="text"
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="John Doe"
-                value={formData.fname || ""}
-                className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900 bg-gray-50 ${
-                  errors.fname && touched.fname ? "border-red-500" : "border-gray-300"
-                }`}
-              />
-              {errors.fname && touched.fname && (
-                <p className="text-red-500 text-xs mt-1">{errors.fname}</p>
-              )}
+            {/* Balance */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-gray-600 text-sm font-medium">Balance</span>
+                <Wallet className="text-blue-500" size={20} />
+              </div>
+              <p className="text-3xl font-bold text-red-500">-BWP 600.00</p>
+              <p className="text-xs text-gray-500 mt-1">Current balance</p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1.5">
-                Username
-              </label>
-              <input
-                name="username"
-                type="text"
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="johndoe"
-                value={formData.username || ""}
-                className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900 bg-gray-50 ${
-                  errors.username && touched.username ? "border-red-500" : "border-gray-300"
-                }`}
-              />
-              {errors.username && touched.username && (
-                <p className="text-red-500 text-xs mt-1">{errors.username}</p>
-              )}
+            {/* Transactions */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-gray-600 text-sm font-medium">Transactions</span>
+                <Receipt className="text-purple-500" size={20} />
+              </div>
+              <p className="text-3xl font-bold text-gray-900">1</p>
+              <p className="text-xs text-gray-500 mt-1">Total count</p>
+            </div>
+          </div>
+
+          {/* Charts Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Income vs Expenses Chart */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Income vs Expenses</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={incomeExpenseData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="name" stroke="#9ca3af" />
+                  <YAxis stroke="#9ca3af" />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="income" fill="#10B981" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="expenses" fill="#EF4444" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1.5">
-                Email
-              </label>
-              <input
-                name="email"
-                type="email"
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="you@example.com"
-                value={formData.email || ""}
-                className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900 bg-gray-50 ${
-                  errors.email && touched.email ? "border-red-500" : "border-gray-300"
-                }`}
-              />
-              {errors.email && touched.email && (
-                <p className="text-red-500 text-xs mt-1">{errors.email}</p>
-              )}
+            {/* Expenses by Category Chart */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Expenses by Category</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={categoryData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {categoryData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1.5">
-                Date of Birth
-              </label>
-              <input
-                name="dob"
-                type="date"
-                onChange={handleChange}
-                onBlur={handleBlur}
-                value={formData.dob || ""}
-                className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900 bg-gray-50 ${
-                  errors.dob && touched.dob ? "border-red-500" : "border-gray-300"
-                }`}
-              />
-              {errors.dob && touched.dob && (
-                <p className="text-red-500 text-xs mt-1">{errors.dob}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1.5">
-                Gender
-              </label>
-              <select
-                name="gender"
-                onChange={handleChange}
-                onBlur={handleBlur}
-                value={formData.gender || ""}
-                className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900 bg-gray-50 ${
-                  errors.gender && touched.gender ? "border-red-500" : "border-gray-300"
-                }`}
-              >
-                <option value="">Select gender</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
-              </select>
-              {errors.gender && touched.gender && (
-                <p className="text-red-500 text-xs mt-1">{errors.gender}</p>
-              )}
-            </div>
-
-            <div className="relative">
-              <label className="block text-sm font-medium text-gray-900 mb-1.5">
-                Password
-              </label>
-              <input
-                name="password"
-                type={showPassword ? "text" : "password"}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="Create a password"
-                value={formData.password || ""}
-                className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900 bg-gray-50 pr-10 ${
-                  errors.password && touched.password ? "border-red-500" : "border-gray-300"
-                }`}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-9 text-gray-500 hover:text-gray-700"
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-              {errors.password && touched.password && (
-                <p className="text-red-500 text-xs mt-1">{errors.password}</p>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium transition-colors disabled:opacity-50 mt-4"
-            >
-              {loading ? "Creating..." : "Create Account"}
-            </button>
-          </form>
-        )}
-      </div>
+          {/* User Profile Card */}
+       
+        </div>
+      </main>
     </div>
   );
 }
