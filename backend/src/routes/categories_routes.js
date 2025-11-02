@@ -8,6 +8,6 @@ const router = express.Router();
 router.post('/new_categories', verifyToken, addCategory);
 router.get('/allcategories', verifyToken, getUserCategories);
 router.put('/update_categories/:category_id', verifyToken, updateCategory);
-router.delete('/categories/:category_id', verifyToken, removeCategory);
+router.delete('/del-categories/:category_id', verifyToken, removeCategory);
 
 export default router;

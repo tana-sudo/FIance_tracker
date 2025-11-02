@@ -5,9 +5,9 @@ import con from '../config/db.js';
   const createTableQuery = `
     CREATE TABLE IF NOT EXISTS categories (
       category_id SERIAL PRIMARY KEY,
-      user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      user_id INT  REFERENCES users(id) ON DELETE CASCADE,
       name VARCHAR(50) NOT NULL,
-      type VARCHAR(10) NOT NULL CHECK (type IN ('income', 'expense')),
+      type VARCHAR(10) NOT NULL CHECK (type IN ('Global', 'Personal')),
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     );
@@ -38,9 +38,9 @@ export const insertCategory = async (user_id, name, type) => {
 // Get all categories for a user
 export const getCategoriesByUser = async (user_id) => {
   const result = await con.query(
-    `SELECT category_id, user_id, name, type, created_at, updated_at
+    `SELECT category_id, name, type 
      FROM categories
-     WHERE user_id = $1
+     WHERE user_id = $1 or type = 'Global'
      ORDER BY name ASC`,
     [user_id]
   );

@@ -1,0 +1,119 @@
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { 
+  LayoutDashboard, 
+  ArrowUpDown, 
+  Target, 
+  Tag, 
+  FileText, 
+  LogOut
+} from "lucide-react";
+
+export default function Layout({ children }) {
+  const [user, setUser] = useState(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const userData = localStorage.getItem("user");
+    const token = localStorage.getItem("accessToken");
+
+    if (!userData || !token) {
+      navigate("/");
+      return;
+    }
+
+    try {
+      setUser(JSON.parse(userData));
+    } catch (error) {
+      console.error("Error parsing user data:", error);
+      navigate("/");
+    }
+  }, [navigate]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("user");
+    navigate("/");
+  };
+
+  const navItems = [
+    { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+    { name: 'Transactions', icon: ArrowUpDown, path: '/transactions' },
+    { name: 'Budgets', icon: Target, path: '/budgets' },
+    { name: 'Categories', icon: Tag, path: '/categories' },
+    { name: 'Reports', icon: FileText, path: '/reports' },
+  ];
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="text-gray-600 font-medium">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-screen bg-gray-50">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
+        {/* Logo/Brand */}
+        <div className="p-6 border-b border-gray-200">
+          <h1 className="text-2xl font-bold text-blue-600 mb-1">Finance Tracker</h1>
+          <div className="flex items-center gap-2 mt-3 p-2 bg-gray-50 rounded-lg">
+            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
+              {(user.fname?.[0] || user.username?.[0] || 'U').toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {user.fname || user.username}
+              </p>
+              <p className="text-xs text-gray-500 truncate">{user.email}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 p-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-4">
+            Menu
+          </p>
+          {navItems.map((item) => (
+            <button
+              key={item.name}
+              onClick={() => navigate(item.path)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-all ${
+                location.pathname === item.path
+                  ? 'bg-blue-50 text-blue-600 font-medium'
+                  : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+              }`}
+            >
+              <item.icon size={20} />
+              <span>{item.name}</span>
+            </button>
+          ))}
+        </nav>
+
+        {/* Sign Out */}
+        <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
+          >
+            <LogOut size={20} />
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto">
+        {children}
+      </main>
+    </div>
+  );
+}

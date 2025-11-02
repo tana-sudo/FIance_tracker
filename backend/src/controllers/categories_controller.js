@@ -66,9 +66,9 @@ export const removeCategory = async (req, res) => {
     const user_id = req.user?.id;
     const category_id = req.params.category_id;
 
-    const category = await getCategoriesByUser(user_id);
+    /*const category = await getCategoriesByUser(user_id);
     const ownsCategory = category.find(c => c.id == category_id);
-    if (!ownsCategory) return res.status(403).json({ error: 'Forbidden. You can only delete your own categories.' });
+    if (!ownsCategory) return res.status(403).json({ error: 'Forbidden. You can only delete your own categories.' });*/
 
     const deletedCategory = await deleteCategoryData(category_id);
     return res.status(200).json(deletedCategory);
