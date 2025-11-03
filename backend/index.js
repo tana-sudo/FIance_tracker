@@ -7,6 +7,7 @@ import { generateAccessToken, generateRefreshToken, verifyToken, refreshAccessTo
 import userRoutes from '../backend/src/routes/user_routes.js'; 
 import categoryRoutes from '../backend/src/routes/categories_routes.js';
 import authRoutes from '../backend/src/routes/auth_routes.js';
+import transactionRoutes from '../backend/src/routes/transactions_routes.js';
 
 dotenv.config();
 const app = express();
@@ -18,6 +19,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/transactions', transactionRoutes);
 
 
 app.listen(port, () => {

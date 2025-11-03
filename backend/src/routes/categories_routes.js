@@ -6,7 +6,7 @@ const router = express.Router();
 
 // All category routes are protected
 router.post('/new_categories', verifyToken, addCategory);
-router.get('/allcategories', verifyToken, getUserCategories);
+router.get('/allcategories/:user_id', verifyToken, getUserCategories);
 router.put('/update_categories/:category_id', verifyToken, updateCategory);
 router.delete('/del-categories/:category_id', verifyToken, removeCategory);
 

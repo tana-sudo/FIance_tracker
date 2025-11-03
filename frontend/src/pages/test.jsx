@@ -1,519 +1,418 @@
-import React, { useState, useEffect } from "react";
-import { Plus, X, Trash2, Tag, Edit2, TrendingUp, TrendingDown, Package, Search, Grid, List } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Plus, Pencil, Trash2, Search, X, Calendar } from "lucide-react";
+import toast from "react-hot-toast";
 
-export default function Categories() {
-  const API_BASE = "http://localhost:3000/api";
+export default function Transactions() {
+  const API_ROOT = "http://localhost:3000/api";
   const token = localStorage.getItem("accessToken");
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
 
+  const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newCategory, setNewCategory] = useState("");
-  const [selectedColor, setSelectedColor] = useState("#3B82F6");
-  const [selectedIcon, setSelectedIcon] = useState("tag");
-  const [loading, setLoading] = useState(false);
-  const [fetchLoading, setFetchLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [viewMode, setViewMode] = useState("grid");
-  const [filterType, setFilterType] = useState("all");
 
-  const colorOptions = [
-    "#3B82F6", "#10B981", "#F59E0B", "#EF4444", 
-    "#8B5CF6", "#EC4899", "#06B6D4", "#6366F1"
-  ];
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState({
+    amount: "",
+    description: "",
+    category_id: "",
+    type: "expense",
+    date: new Date().toISOString().split("T")[0],
+  });
 
-  const iconOptions = [
-    { name: "tag", icon: Tag },
-    { name: "package", icon: Package },
-    { name: "trending-up", icon: TrendingUp },
-    { name: "trending-down", icon: TrendingDown }
-  ];
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("all");
 
   useEffect(() => {
+    if (!user?.id) return;
     fetchCategories();
-  }, []);
+    fetchTransactions();
+  }, [user.id]);
 
   const fetchCategories = async () => {
-    setFetchLoading(true);
-    setError("");
-    
     try {
-      const res = await fetch(`${API_BASE}/categories/allcategories`, {
-        headers: { 
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
+      const res = await fetch(`${API_ROOT}/categories/allcategories/${user.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      const contentType = res.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Server returned invalid response. Please check your API endpoint.");
-      }
-
+      if (!res.ok) throw new Error("Failed to fetch categories");
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || data.message || "Failed to load categories");
-      }
-
-      setCategories(Array.isArray(data) ? data : [
-      ]);
+      setCategories(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("Fetch error:", err);
-      setError(err.message);
-    } finally {
-      setFetchLoading(false);
+      console.error("❌ Error fetching categories:", err);
+      toast.error("Failed to load categories");
     }
   };
 
-  const handleAddCategory = async () => {
-    if (!newCategory.trim()) {
-      setError("Category name is required");
-      return;
-    }
-
+  const fetchTransactions = async () => {
     setLoading(true);
-    setError("");
-
     try {
-      const res = await fetch(`${API_BASE}/categories/new_categories`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: newCategory.trim(),
-          type: "Personal",
-          color: selectedColor,
-          icon: selectedIcon
-        }),
+      const res = await fetch(`${API_ROOT}/transactions/${user.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      const contentType = res.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Server returned invalid response. Please check your API endpoint.");
-      }
-
+      if (!res.ok) throw new Error("Failed to fetch transactions");
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || data.message || "Failed to add category");
-      }
-
-      setCategories((prev) => [...prev, { ...data, color: selectedColor, icon: selectedIcon }]);
-      setNewCategory("");
-      setSelectedColor("#3B82F6");
-      setSelectedIcon("tag");
-      setIsModalOpen(false);
+      setTransactions(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("Add category error:", err);
-      setError(err.message);
+      console.error("❌ Error fetching transactions:", err);
+      toast.error("Failed to load transactions");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteCategory = async (id) => {
-  if (!window.confirm("Are you sure you want to delete this category?")) return;
-
-  try {
-    const res = await fetch(`${API_BASE}/categories/del-categories/${id}`, {
-      method: "DELETE",
-      headers: { 
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-      },
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.error || data.message || "Failed to delete category");
+  const handleSave = async () => {
+    if (!form.amount || !form.description || !form.category_id) {
+      toast.error("All fields are required");
+      return;
     }
 
-    setCategories((prev) => prev.filter((c) => c.category_id !== id));
-  } catch (err) {
-    console.error("Delete error:", err);
-    alert(err.message);
-  }
-};
+    const payload = {
+      user_id: user.id,
+      amount: parseFloat(form.amount),
+      type: form.type,
+      category_id: parseInt(form.category_id),
+      description: form.description,
+      date: form.date,
+    };
 
+    try {
+      const url = editing
+        ? `${API_ROOT}/transactions/updateTransaction/${editing.transaction_id}`
+        : `${API_ROOT}/transactions/addTransaction`;
+      const method = editing ? "PUT" : "POST";
 
-  const getIconComponent = (iconName) => {
-    const icon = iconOptions.find(i => i.name === iconName);
-    return icon ? icon.icon : Tag;
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) throw new Error("Failed to save transaction");
+
+      await fetchTransactions();
+      setIsModalOpen(false);
+      setEditing(null);
+      resetForm();
+      toast.success(editing ? "Transaction updated!" : "Transaction added!");
+    } catch (err) {
+      console.error("❌ Save error:", err);
+      toast.error(err.message);
+    }
   };
 
-  const filteredCategories = categories.filter(cat => {
-    const matchesSearch = cat.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterType === "all" || 
-      (filterType === "global" && cat.type === "Global") ||
-      (filterType === "personal" && cat.type !== "Global");
-    return matchesSearch && matchesFilter;
+  const handleDelete = async (transaction_id) => {
+    if (!window.confirm("Delete this transaction?")) return;
+    try {
+      const res = await fetch(
+        `${API_ROOT}/transactions/deleteTransaction/${transaction_id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (!res.ok) throw new Error("Failed to delete transaction");
+      await fetchTransactions();
+      toast.success("Transaction deleted!");
+    } catch (err) {
+      console.error("❌ Delete error:", err);
+      toast.error(err.message);
+    }
+  };
+
+  const resetForm = () => {
+    setForm({
+      amount: "",
+      description: "",
+      category_id: "",
+      type: "expense",
+      date: new Date().toISOString().split("T")[0],
+    });
+  };
+
+  const openNew = () => {
+    setEditing(null);
+    resetForm();
+    setIsModalOpen(true);
+  };
+
+  const openEdit = (t) => {
+    setEditing(t);
+    setForm({
+      amount: t.amount,
+      description: t.description,
+      category_id: t.category_id,
+      type: t.type,
+      date: t.date.split("T")[0],
+    });
+    setIsModalOpen(true);
+  };
+
+  const filtered = transactions.filter((t) => {
+    const matchesSearch = t.description
+      ?.toLowerCase()
+      .includes(search.toLowerCase());
+    const matchesType = filter === "all" || t.type === filter;
+    return matchesSearch && matchesType;
   });
 
-  const stats = {
-    total: categories.length,
-    global: categories.filter(c => c.type === "Global").length,
-    personal: categories.filter(c => c.type !== "Global").length
-  };
-
   return (
-    <>
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-8">
-        <div className="flex justify-between items-start">
-          <div className="text-white">
-            <h2 className="text-3xl font-bold mb-2">Categories</h2>
-            <p className="text-blue-100">Organize and manage your transaction categories</p>
-          </div>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white text-blue-600 rounded-lg font-medium hover:bg-blue-50 transition-colors shadow-lg"
-          >
-            <Plus size={20} />
-            Add Category
-          </button>
+    <div className="max-w-6xl mx-auto p-6">
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Transactions</h1>
+          <p className="text-gray-500 text-sm">Track and manage your finances</p>
         </div>
+        <button
+          onClick={openNew}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          <Plus size={18} /> Add Transaction
+        </button>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
-            <p className="text-blue-100 text-sm mb-1">Total Categories</p>
-            <p className="text-3xl font-bold text-white">{stats.total}</p>
-          </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
-            <p className="text-blue-100 text-sm mb-1">Global</p>
-            <p className="text-3xl font-bold text-white">{stats.global}</p>
-          </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
-            <p className="text-blue-100 text-sm mb-1">Personal</p>
-            <p className="text-3xl font-bold text-white">{stats.personal}</p>
-          </div>
+      {/* SEARCH + FILTER */}
+      <div className="flex flex-col sm:flex-row gap-3 items-center mb-6">
+        <div className="relative flex-1 w-full">
+          <Search
+            size={18}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          />
+          <input
+            type="text"
+            placeholder="Search transactions..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 border rounded-lg"
+          />
+        </div>
+        <div className="flex gap-2">
+          {["all", "income", "expense"].map((t) => (
+            <button
+              key={t}
+              onClick={() => setFilter(t)}
+              className={`px-4 py-2 rounded-lg ${
+                filter === t
+                  ? t === "income"
+                    ? "bg-green-600 text-white"
+                    : t === "expense"
+                    ? "bg-red-600 text-white"
+                    : "bg-blue-600 text-white"
+                  : "bg-gray-100"
+              }`}
+            >
+              {t.charAt(0).toUpperCase() + t.slice(1)}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="p-8">
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-start gap-3">
-            <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <span className="text-red-600 text-xs font-bold">!</span>
-            </div>
-            <div className="flex-1">
-              <p className="text-red-800 font-medium text-sm">Error</p>
-              <p className="text-red-600 text-sm mt-1">{error}</p>
-            </div>
+      {/* TABLE */}
+      <div className="bg-white border rounded-lg shadow-sm overflow-x-auto">
+        {loading ? (
+          <div className="text-center p-10 text-gray-500">
+            Loading transactions...
           </div>
-        )}
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-          <div className="flex flex-col md:flex-row gap-4 items-center">
-            <div className="flex-1 relative w-full">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder="Search categories..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              />
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFilterType("all")}
-                className={`px-4 py-2.5 rounded-lg font-medium transition-colors ${
-                  filterType === "all"
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setFilterType("global")}
-                className={`px-4 py-2.5 rounded-lg font-medium transition-colors ${
-                  filterType === "global"
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                Global
-              </button>
-              <button
-                onClick={() => setFilterType("personal")}
-                className={`px-4 py-2.5 rounded-lg font-medium transition-colors ${
-                  filterType === "personal"
-                    ? "bg-purple-600 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                Personal
-              </button>
-            </div>
-
-            <div className="flex gap-2 border-l border-gray-200 pl-4">
-              <button
-                onClick={() => setViewMode("grid")}
-                className={`p-2.5 rounded-lg transition-colors ${
-                  viewMode === "grid"
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-                title="Grid view"
-              >
-                <Grid size={20} />
-              </button>
-              <button
-                onClick={() => setViewMode("list")}
-                className={`p-2.5 rounded-lg transition-colors ${
-                  viewMode === "list"
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-                title="List view"
-              >
-                <List size={20} />
-              </button>
-            </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center p-10 text-gray-500">
+            No transactions found.
           </div>
-        </div>
-
-        {fetchLoading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-            <p className="text-gray-600">Loading categories...</p>
-          </div>
-        ) : filteredCategories.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-            <div className="w-20 h-20 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
-              <Tag size={40} className="text-gray-400" />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
-              {searchTerm ? "No matching categories" : "No Categories Yet"}
-            </h3>
-            <p className="text-gray-600 mb-6">
-              {searchTerm ? "Try adjusting your search" : "Get started by adding your first category"}
-            </p>
-            {!searchTerm && (
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-              >
-                <Plus size={20} />
-                Add Category
-              </button>
-            )}
-          </div>
-        ) : viewMode === "grid" ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredCategories.map((cat) => {
-              const IconComponent = getIconComponent(cat.icon);
-              return (
-                <div
-                  key={cat.category_id || cat.name}
-                  className="group bg-white border-2 border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-lg hover:border-blue-300 transition-all duration-200"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div 
-                      className="w-12 h-12 rounded-xl flex items-center justify-center"
-                      style={{ backgroundColor: `${cat.color || '#3B82F6'}20` }}
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="text-left px-4 py-2">Date</th>
+                <th className="text-left px-4 py-2">Description</th>
+                <th className="text-left px-4 py-2">Category</th>
+                <th className="text-left px-4 py-2">Type</th>
+                <th className="text-right px-4 py-2">Amount</th>
+                <th className="text-center px-4 py-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((t) => {
+                const category = categories.find(
+                  (c) => c.category_id === t.category_id
+                );
+                return (
+                  <tr
+                    key={t.transaction_id}
+                    className="border-t hover:bg-gray-50 transition"
+                  >
+                    <td className="px-4 py-2">
+                      {new Date(t.date).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-2">{t.description}</td>
+                    <td className="px-4 py-2">{category?.name || "N/A"}</td>
+                    <td className="px-4 py-2">
+                      <span
+                        className={`px-2 py-1 text-xs rounded-full font-semibold ${
+                          t.type === "income"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {t.type}
+                      </span>
+                    </td>
+                    <td
+                      className={`px-4 py-2 text-right font-medium ${
+                        t.type === "income"
+                          ? "text-green-600"
+                          : "text-red-600"
+                      }`}
                     >
-                      <IconComponent 
-                        size={24} 
-                        style={{ color: cat.color || '#3B82F6' }}
-                      />
-                    </div>
-                    {cat.type !== "Global" && (
+                      BWP {parseFloat(t.amount).toFixed(2)}
+                    </td>
+                    <td className="px-4 py-2 text-center">
                       <button
-                        onClick={() => handleDeleteCategory(cat.category_id)}
-                        className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                        onClick={() => openEdit(t)}
+                        className="p-1 text-gray-600 hover:text-blue-600"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(t.transaction_id)}
+                        className="p-1 text-red-600 hover:text-red-800"
                       >
                         <Trash2 size={16} />
                       </button>
-                    )}
-                  </div>
-                  
-                  <h3 className="font-semibold text-gray-900 mb-2">{cat.name}</h3>
-                  
-                  <span
-                    className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
-                      cat.type === "Global"
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-purple-100 text-purple-700"
-                    }`}
-                  >
-                    {cat.type === "Global" ? "Global" : "Personal"}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            {filteredCategories.map((cat, index) => {
-              const IconComponent = getIconComponent(cat.icon);
-              return (
-                <div
-                  key={cat.category_id || cat.name}
-                  className={`flex items-center justify-between p-5 hover:bg-gray-50 transition-colors ${
-                    index !== filteredCategories.length - 1 ? 'border-b border-gray-200' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-4">
-                    <div 
-                      className="w-12 h-12 rounded-xl flex items-center justify-center"
-                      style={{ backgroundColor: `${cat.color || '#3B82F6'}20` }}
-                    >
-                      <IconComponent 
-                        size={24} 
-                        style={{ color: cat.color || '#3B82F6' }}
-                      />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{cat.name}</h3>
-                      <span
-                        className={`inline-flex mt-1 px-2.5 py-0.5 text-xs font-semibold rounded-full ${
-                          cat.type === "Global"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-purple-100 text-purple-700"
-                        }`}
-                      >
-                        {cat.type === "Global" ? "Global" : "Personal"}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {cat.type !== "Global" && (
-                    <button
-                      onClick={() => handleDeleteCategory(cat.category_id)}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
 
+      {/* MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl relative animate-in fade-in zoom-in duration-200">
-            <button
-              onClick={() => {
-                setIsModalOpen(false);
-                setNewCategory("");
-                setSelectedColor("#3B82F6");
-                setSelectedIcon("tag");
-                setError("");
-              }}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X size={24} />
-            </button>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-lg">
+            <div className="flex items-center justify-between border-b p-4">
+              <h2 className="text-lg font-semibold">
+                {editing ? "Edit Transaction" : "Add Transaction"}
+              </h2>
+              <button
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setEditing(null);
+                }}
+              >
+                <X />
+              </button>
+            </div>
 
-            <div className="p-6">
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  Add New Category
-                </h2>
-                <p className="text-sm text-gray-600">
-                  Customize your category with a name, color, and icon
-                </p>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="text-sm font-medium">Amount (BWP)</label>
+                <input
+                  type="number"
+                  value={form.amount}
+                  onChange={(e) =>
+                    setForm({ ...form, amount: e.target.value })
+                  }
+                  className="w-full border rounded px-3 py-2"
+                />
               </div>
 
-              <div className="space-y-5">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Category Name
-                  </label>
+              <div>
+                <label className="text-sm font-medium">Description</label>
+                <input
+                  type="text"
+                  value={form.description}
+                  onChange={(e) =>
+                    setForm({ ...form, description: e.target.value })
+                  }
+                  className="w-full border rounded px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Category</label>
+                <select
+                  value={form.category_id}
+                  onChange={(e) =>
+                    setForm({ ...form, category_id: e.target.value })
+                  }
+                  className="w-full border rounded px-3 py-2"
+                >
+                  <option value="">Select category</option>
+                  {categories.map((c) => (
+                    <option key={c.category_id} value={c.category_id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Date</label>
+                <div className="flex items-center gap-2">
+                  <Calendar size={18} />
                   <input
-                    type="text"
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        handleAddCategory();
-                      }
-                    }}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    placeholder="e.g. Groceries, Entertainment"
-                    autoFocus
+                    type="date"
+                    value={form.date}
+                    onChange={(e) =>
+                      setForm({ ...form, date: e.target.value })
+                    }
+                    className="border rounded px-3 py-2 w-full"
                   />
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Choose Color
-                  </label>
-                  <div className="flex gap-2 flex-wrap">
-                    {colorOptions.map((color) => (
-                      <button
-                        key={color}
-                        onClick={() => setSelectedColor(color)}
-                        className={`w-10 h-10 rounded-lg transition-all ${
-                          selectedColor === color
-                            ? 'ring-2 ring-offset-2 ring-blue-500 scale-110'
-                            : 'hover:scale-105'
-                        }`}
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Choose Icon
-                  </label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {iconOptions.map((option) => {
-                      const IconComp = option.icon;
-                      return (
-                        <button
-                          key={option.name}
-                          onClick={() => setSelectedIcon(option.name)}
-                          className={`p-4 rounded-lg border-2 transition-all ${
-                            selectedIcon === option.name
-                              ? 'border-blue-500 bg-blue-50'
-                              : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                        >
-                          <IconComp size={24} className="mx-auto" />
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="pt-4 flex gap-3">
+              <div>
+                <label className="text-sm font-medium">Type</label>
+                <div className="flex gap-3 mt-1">
                   <button
-                    onClick={() => {
-                      setIsModalOpen(false);
-                      setNewCategory("");
-                      setSelectedColor("#3B82F6");
-                      setSelectedIcon("tag");
-                      setError("");
-                    }}
-                    className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                    type="button"
+                    onClick={() => setForm({ ...form, type: "income" })}
+                    className={`px-4 py-2 rounded ${
+                      form.type === "income"
+                        ? "bg-green-600 text-white"
+                        : "bg-gray-100"
+                    }`}
                   >
-                    Cancel
+                    Income
                   </button>
                   <button
-                    onClick={handleAddCategory}
-                    disabled={loading || !newCategory.trim()}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-blue-500/30"
+                    type="button"
+                    onClick={() => setForm({ ...form, type: "expense" })}
+                    className={`px-4 py-2 rounded ${
+                      form.type === "expense"
+                        ? "bg-red-600 text-white"
+                        : "bg-gray-100"
+                    }`}
                   >
-                    {loading ? "Adding..." : "Add Category"}
+                    Expense
                   </button>
                 </div>
               </div>
+            </div>
+
+            <div className="flex justify-end gap-2 p-4 border-t">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2 border rounded"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                className="px-4 py-2 bg-blue-600 text-white rounded"
+              >
+                {editing ? "Update" : "Add"}
+              </button>
             </div>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
