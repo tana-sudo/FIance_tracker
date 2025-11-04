@@ -3,17 +3,17 @@ import pool from '../config/db.js';
 (async () => {
   const createTableQuery = `
    CREATE TABLE IF NOT EXISTS budgets (
-  id SERIAL PRIMARY KEY,
-  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  category_id INT NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
-  amount DECIMAL(10, 2) NOT NULL,
-  start_date DATE DEFAULT CURRENT_DATE,
-  end_date DATE,
+  budget_id SERIAL PRIMARY KEY,
+  user_id INT  REFERENCES users(id) ON DELETE CASCADE,
+  category_id INT NOT NULL REFERENCES categories(category_id) ON DELETE CASCADE,
+  amount varchar(20) NOT NULL,
+  start_date varchar(20) NOT NULL,
+  end_date varchar(20) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
   `;
   try {
-    await con.query(createTableQuery);
+    await pool.query(createTableQuery);
     console.log('✓ budget table is ready');
   } catch (error) {
     console.error('❌ Error creating budget table:', error.message);
@@ -24,7 +24,7 @@ export const insertBudget = async (user_id, category_id, amount, start_date, end
   const result = await pool.query(
     `INSERT INTO budgets (user_id, category_id, amount, start_date, end_date)
      VALUES ($1, $2, $3, $4, $5)
-     RETURNING id, user_id, category_id, amount, start_date, end_date, created_at`,
+     RETURNING budget_id, user_id, category_id, amount, start_date, end_date, created_at`,
     [user_id, category_id, amount, start_date, end_date]
   );
   return result.rows[0];
@@ -33,10 +33,10 @@ export const insertBudget = async (user_id, category_id, amount, start_date, end
 // Get budgets for a user
 export const getBudgetsByUser = async (user_id) => {
   const result = await pool.query(
-    `SELECT b.*, c.name AS category_name, c.type AS category_type
-     FROM budgets b
-     JOIN categories c ON b.category_id = c.id
-     WHERE b.user_id = $1`,
+    `SELECT budget_id, user_id , category_id , amount, start_date, end_date, created_at 
+     FROM budgets
+     WHERE user_id = $1 
+     ORDER BY created_at ASC`,
     [user_id]
   );
   return result.rows;
@@ -47,7 +47,7 @@ export const updateBudgetData = async (budget_id, amount, start_date, end_date) 
   const result = await pool.query(
     `UPDATE budgets
      SET amount = $1, start_date = $2, end_date = $3
-     WHERE id = $4
+     WHERE budget_id = $4
      RETURNING *`,
     [amount, start_date, end_date, budget_id]
   );
@@ -57,7 +57,7 @@ export const updateBudgetData = async (budget_id, amount, start_date, end_date) 
 // Delete a budget
 export const deleteBudgetData = async (budget_id) => {
   const result = await pool.query(
-    `DELETE FROM budgets WHERE id = $1 RETURNING *`,
+    `DELETE FROM budgets WHERE budget_id = $1 RETURNING *`,
     [budget_id]
   );
   return result.rows[0];

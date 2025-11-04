@@ -4,7 +4,7 @@ import {
   updateBudgetData,
   deleteBudgetData,
   getBudgetsWithSummary
-} from '../models/budgetModel.js';
+} from '../models/budget_model.js';
 
 // Add new budget
 export const addBudget = async (req, res) => {

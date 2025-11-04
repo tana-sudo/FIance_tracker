@@ -1,411 +1,339 @@
-import React, { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, Search, X, Calendar } from "lucide-react";
-import toast from "react-hot-toast";
+import React, { useState, useEffect } from "react";
+import { Plus, X, Trash2, Edit2, Target, AlertCircle, CheckCircle } from "lucide-react";
 
-export default function Transactions() {
-  const API_ROOT = "http://localhost:3000/api";
+export default function Budgets() {
+  const API_BASE = "http://localhost:3000/api";
   const token = localStorage.getItem("accessToken");
   const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const user_id = user.id;
 
-  const [transactions, setTransactions] = useState([]);
+  const [budgets, setBudgets] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-
+  const [transactions, setTransactions] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("all");
+  const [editingBudget, setEditingBudget] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [fetchLoading, setFetchLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
-
-  const [form, setForm] = useState({
-    amount: "",
-    description: "",
+  const [formData, setFormData] = useState({
     category_id: "",
-    type: "expense",
-    date: new Date().toISOString().split("T")[0],
+    amount: "",
+    start_date: new Date().toISOString().split("T")[0],
+    end_date: ""
   });
 
   useEffect(() => {
-    if (!user?.id) return;
+    fetchBudgets();
     fetchCategories();
     fetchTransactions();
-  }, [user.id]);
+  }, []);
 
+  // ===== FETCH BUDGETS =====
+  const fetchBudgets = async () => {
+    setFetchLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/budgets/get_budgets/${user_id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to load budgets");
+
+      setBudgets(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setFetchLoading(false);
+    }
+  };
+
+  // ===== FETCH CATEGORIES =====
   const fetchCategories = async () => {
     try {
-      const res = await fetch(`${API_ROOT}/categories/allcategories/${user.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await fetch(`${API_BASE}/categories/allcategories/${user_id}`, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
       setCategories(Array.isArray(data) ? data : []);
     } catch (err) {
-      toast.error("Failed to load categories");
+      console.error(err);
     }
   };
 
+  // ===== FETCH TRANSACTIONS =====
   const fetchTransactions = async () => {
-    setLoading(true);
     try {
-      const res = await fetch(`${API_ROOT}/transactions/gettransactions/${user.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await fetch(`${API_BASE}/transactions/gettransactions/${user_id}`, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
       setTransactions(Array.isArray(data) ? data : []);
     } catch (err) {
-      toast.error("Failed to load transactions");
+      console.error(err);
+    }
+  };
+
+  // ===== CALCULATIONS =====
+  const calculateSpent = (budget) => {
+    return transactions
+      .filter(t =>
+        t.category_id === budget.category_id &&
+        t.type === "expense" &&
+        new Date(t.date) >= new Date(budget.start_date) &&
+        new Date(t.date) <= new Date(budget.end_date)
+      )
+      .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+  };
+
+  const getBudgetStatus = (budget, spent) => {
+    const percentage = (spent / parseFloat(budget.amount)) * 100;
+    if (percentage >= 100) return { color: "red", icon: AlertCircle };
+    if (percentage >= 80) return { color: "yellow", icon: AlertCircle };
+    return { color: "green", icon: CheckCircle };
+  };
+
+  const totalBudget = budgets.reduce((sum, b) => sum + parseFloat(b.amount || 0), 0);
+  const totalSpent = budgets.reduce((sum, b) => sum + calculateSpent(b), 0);
+  const totalRemaining = totalBudget - totalSpent;
+
+  // ===== SUBMIT / UPDATE =====
+  const handleSubmit = async () => {
+    if (!formData.category_id || !formData.amount || !formData.start_date || !formData.end_date) {
+      setError("Please fill in all fields");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    const url = editingBudget
+      ? `${API_BASE}/budgets/updateBudget/${editingBudget.budget_id}`
+      : `${API_BASE}/budgets/add_budget`;
+
+    const payload = {
+      user_id,
+      category_id: parseInt(formData.category_id),
+      amount: formData.amount,
+      start_date: formData.start_date,
+      end_date: formData.end_date
+    };
+
+    try {
+      const res = await fetch(url, {
+        method: editingBudget ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save budget");
+
+      await fetchBudgets();
+      resetForm();
+      setIsModalOpen(false);
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSave = async () => {
-    if (!form.amount || !form.description || !form.category_id) {
-      toast.error("All fields are required");
-      return;
-    }
-
-    const payload = {
-      user_id: user.id,
-      amount: parseFloat(form.amount),
-      type: form.type,
-      category_id: parseInt(form.category_id),
-      description: form.description,
-      date: form.date,
-    };
+  // ===== DELETE =====
+  const handleDelete = async (budget_id) => {
+    if (!window.confirm("Delete this budget?")) return;
 
     try {
-      const url = editing
-        ? `${API_ROOT}/transactions/updateTransaction/${editing.transaction_id}`
-        : `${API_ROOT}/transactions/addTransaction`;
-      const method = editing ? "PUT" : "POST";
-
-      const res = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
+      const res = await fetch(`${API_BASE}/budgets/removeBudget/${budget_id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (!res.ok) throw new Error("Failed to save transaction");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete");
 
-      fetchTransactions();
-      setIsModalOpen(false);
-      setEditing(null);
-      resetForm();
-      toast.success(editing ? "Transaction updated!" : "Transaction added!");
+      setBudgets(prev => prev.filter(b => b.budget_id !== budget_id));
     } catch (err) {
-      toast.error(err.message);
+      alert(err.message);
     }
   };
 
-  const handleDelete = async (transaction_id) => {
-    if (!window.confirm("Delete this transaction?")) return;
-
-    try {
-      const res = await fetch(
-        `${API_ROOT}/transactions/deleteTransaction/${transaction_id}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      if (!res.ok) throw new Error("Failed to delete transaction");
-      fetchTransactions();
-      toast.success("Transaction deleted!");
-    } catch (err) {
-      toast.error(err.message);
-    }
+  const handleEdit = (budget) => {
+    setEditingBudget(budget);
+    setFormData({
+      category_id: budget.category_id,
+      amount: budget.amount,
+      start_date: budget.start_date.split("T")[0],
+      end_date: budget.end_date.split("T")[0]
+    });
+    setIsModalOpen(true);
   };
 
   const resetForm = () => {
-    setForm({
-      amount: "",
-      description: "",
+    setFormData({
       category_id: "",
-      type: "expense",
-      date: new Date().toISOString().split("T")[0],
+      amount: "",
+      start_date: new Date().toISOString().split("T")[0],
+      end_date: ""
     });
+    setEditingBudget(null);
+    setError("");
   };
 
-  const openNew = () => {
-    setEditing(null);
-    resetForm();
-    setIsModalOpen(true);
-  };
-
-  const openEdit = (t) => {
-    setEditing(t);
-    setForm({
-      amount: t.amount,
-      description: t.description,
-      category_id: t.category_id,
-      type: t.type,
-      date: t.date.split("T")[0],
-    });
-    setIsModalOpen(true);
-  };
-
-  const filtered = transactions.filter((t) => {
-    const matchesSearch = t.description?.toLowerCase().includes(search.toLowerCase());
-    const matchesType = filter === "all" || t.type === filter;
-
-    const selected = new Date(selectedDate);
-    const txDate = new Date(t.date);
-    const matchesMonth =
-      txDate.getMonth() === selected.getMonth() &&
-      txDate.getFullYear() === selected.getFullYear();
-
-    return matchesSearch && matchesType && matchesMonth;
-  });
-
+  // ===== UI RENDER =====
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <>
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-semibold text-gray-900">Transactions</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Track and manage your finances
-          </p>
-        </div>
-
-        <button
-          onClick={openNew}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-md hover:bg-black transition"
-        >
-          <Plus size={18} /> Add Transaction
-        </button>
-      </div>
-
-      {/* SEARCH + FILTER */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center mb-6">
-        <div className="relative flex-1 w-full">
-          <Search
-            size={18}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          />
-          <input
-            type="text"
-            placeholder="Search..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md bg-white text-gray-700 focus:ring-2 focus:ring-black/10"
-          />
-        </div>
-
-        <div className="flex gap-2 bg-gray-100 rounded-full p-1">
-          {["all", "income", "expense"].map((t) => (
-            <button
-              key={t}
-              onClick={() => setFilter(t)}
-              className={`px-4 py-1.5 rounded-full text-sm ${
-                filter === t
-                  ? "bg-white shadow-sm text-gray-900"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {t.charAt(0).toUpperCase() + t.slice(1)}
-            </button>
-          ))}
+      <div className="bg-gradient-to-r from-purple-600 to-pink-600 px-8 py-8">
+        <div className="flex justify-between items-start text-white">
+          <div>
+            <h2 className="text-3xl font-bold">Budgets</h2>
+            <p className="text-purple-100">Set and track your spending limits</p>
+          </div>
+          <button
+            onClick={() => { resetForm(); setIsModalOpen(true); }}
+            className="flex items-center gap-2 px-5 py-2.5 bg-white text-purple-600 rounded-lg shadow-lg"
+          >
+            <Plus size={20} /> Create Budget
+          </button>
         </div>
       </div>
 
-      {/* DATE FILTER */}
-      <div className="flex items-center gap-3 mb-6">
-        <label className="text-sm text-gray-600">Filter by month:</label>
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-700 focus:ring-2 focus:ring-black/10"
-        />
-      </div>
-
-      {/* TABLE */}
-      <div className="border border-gray-200 rounded-lg bg-white overflow-hidden">
-        {loading ? (
-          <div className="text-center p-10 text-gray-500">Loading...</div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center p-10 text-gray-500">No transactions found.</div>
+      {/* MAIN */}
+      <div className="p-8">
+        {fetchLoading ? (
+          <div className="text-center py-20 text-gray-500">Loading budgets...</div>
+        ) : budgets.length === 0 ? (
+          <div className="text-center py-20 text-gray-500">
+            <Target size={50} className="mx-auto text-gray-400 mb-4" />
+            No budgets yet. Create one to get started.
+          </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr className="text-gray-600">
-                <th className="text-left px-4 py-3">Date</th>
-                <th className="text-left px-4 py-3">Description</th>
-                <th className="text-left px-4 py-3">Category</th>
-                <th className="text-left px-4 py-3">Type</th>
-                <th className="text-right px-4 py-3">Amount</th>
-                <th className="text-center px-4 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((t) => {
-                const category = categories.find(
-                  (c) => c.category_id === t.category_id
-                );
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {budgets.map((budget) => {
+              const spent = calculateSpent(budget);
+              const remaining = parseFloat(budget.amount) - spent;
+              const percentage = Math.min((spent / parseFloat(budget.amount)) * 100, 100);
+              const status = getBudgetStatus(budget, spent);
+              const StatusIcon = status.icon;
+              const categoryName = categories.find(c => c.category_id === budget.category_id)?.name || "Uncategorized";
 
-                return (
-                  <tr key={t.transaction_id} className="hover:bg-gray-50 transition">
-                    <td className="px-4 py-3">
-                      {new Date(t.date).toLocaleDateString("en-US")}
-                    </td>
-                    <td className="px-4 py-3">{t.description}</td>
-                    <td className="px-4 py-3">{category?.name || "—"}</td>
-                    <td className="px-4 py-3 capitalize text-gray-600">{t.type}</td>
-                    <td
-                      className={`px-4 py-3 text-right font-medium ${
-                        t.type === "income" ? "text-green-600" : "text-red-600"
+              return (
+                <div key={budget.budget_id} className="bg-white rounded-xl p-6 shadow border">
+                  <div className="flex justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-bold">{categoryName}</h3>
+                      <p className="text-sm text-gray-500">
+                        {new Date(budget.start_date).toLocaleDateString()} - {new Date(budget.end_date).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleEdit(budget)} className="text-blue-600 hover:text-blue-800">
+                        <Edit2 size={18} />
+                      </button>
+                      <button onClick={() => handleDelete(budget.budget_id)} className="text-red-600 hover:text-red-800">
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="text-sm space-y-2 mb-4">
+                    <div className="flex justify-between"><span>Budget</span><span>BWP {budget.amount}</span></div>
+                    <div className="flex justify-between"><span>Spent</span><span className="text-red-600">BWP {spent.toFixed(2)}</span></div>
+                    <div className="flex justify-between">
+                      <span>Remaining</span>
+                      <span className={remaining >= 0 ? "text-green-600" : "text-red-600"}>
+                        BWP {remaining.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="w-full bg-gray-200 h-2 rounded-full">
+                    <div
+                      className={`h-2 rounded-full ${
+                        status.color === "red" ? "bg-red-600" :
+                        status.color === "yellow" ? "bg-yellow-500" :
+                        "bg-green-600"
                       }`}
-                    >
-                      BWP {parseFloat(t.amount).toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-center flex items-center justify-center gap-2">
-                      <button
-                        onClick={() => openEdit(t)}
-                        className="text-gray-500 hover:text-gray-800"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(t.transaction_id)}
-                        className="text-gray-400 hover:text-red-600"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      style={{ width: `${percentage}%` }}
+                    ></div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
       {/* MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg w-full max-w-md shadow-xl border border-gray-200">
-            <div className="flex items-center justify-between border-b p-4">
-              <h2 className="text-lg font-medium text-gray-800">
-                {editing ? "Edit Transaction" : "Add Transaction"}
-              </h2>
-              <button
-                onClick={() => {
-                  setIsModalOpen(false);
-                  setEditing(null);
-                }}
-                className="text-gray-500 hover:text-gray-800"
-              >
-                <X />
-              </button>
-            </div>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg relative">
+            <button onClick={() => { setIsModalOpen(false); resetForm(); }} className="absolute right-4 top-4 text-gray-400">
+              <X size={20} />
+            </button>
 
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="text-sm text-gray-700">Amount (BWP)</label>
-                <input
-                  type="number"
-                  value={form.amount}
-                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 mt-1"
-                />
-              </div>
+            <h2 className="text-xl font-semibold mb-4">{editingBudget ? "Edit Budget" : "Create Budget"}</h2>
 
+            <div className="space-y-4">
               <div>
-                <label className="text-sm text-gray-700">Description</label>
-                <input
-                  type="text"
-                  value={form.description}
-                  onChange={(e) =>
-                    setForm({ ...form, description: e.target.value })
-                  }
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 mt-1"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm text-gray-700">Category</label>
+                <label className="text-sm font-medium mb-1 block">Category</label>
                 <select
-                  value={form.category_id}
-                  onChange={(e) =>
-                    setForm({ ...form, category_id: e.target.value })
-                  }
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 mt-1"
+                  value={formData.category_id}
+                  onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                  className="w-full border rounded px-3 py-2"
                 >
-                  <option value="">Select category</option>
-                  {categories.map((c) => (
-                    <option key={c.category_id} value={c.category_id}>
-                      {c.name}
-                    </option>
+                  <option value="">Select</option>
+                  {categories.map(cat => (
+                    <option key={cat.category_id} value={cat.category_id}>{cat.name}</option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="text-sm text-gray-700">Date</label>
-                <div className="flex items-center gap-2 mt-1">
-                  <Calendar size={18} className="text-gray-500" />
-                  <input
-                    type="date"
-                    value={form.date}
-                    onChange={(e) => setForm({ ...form, date: e.target.value })}
-                    className="border border-gray-300 rounded-md px-3 py-2 w-full"
-                  />
-                </div>
+                <label className="text-sm font-medium mb-1 block">Amount (BWP)</label>
+                <input
+                  type="number"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  className="w-full border rounded px-3 py-2"
+                />
               </div>
 
               <div>
-                <label className="text-sm text-gray-700">Type</label>
-                <div className="flex gap-3 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, type: "income" })}
-                    className={`px-4 py-2 rounded-md border ${
-                      form.type === "income"
-                        ? "bg-gray-900 text-white border-gray-900"
-                        : "bg-white text-gray-600 border-gray-300"
-                    }`}
-                  >
-                    Income
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, type: "expense" })}
-                    className={`px-4 py-2 rounded-md border ${
-                      form.type === "expense"
-                        ? "bg-gray-900 text-white border-gray-900"
-                        : "bg-white text-gray-600 border-gray-300"
-                    }`}
-                  >
-                    Expense
-                  </button>
-                </div>
+                <label className="text-sm font-medium mb-1 block">Start Date</label>
+                <input
+                  type="date"
+                  value={formData.start_date}
+                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                  className="w-full border rounded px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-1 block">End Date</label>
+                <input
+                  type="date"
+                  value={formData.end_date}
+                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                  className="w-full border rounded px-3 py-2"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => { setIsModalOpen(false); resetForm(); }} className="flex-1 border rounded py-2">
+                  Cancel
+                </button>
+                <button onClick={handleSubmit} disabled={loading} className="flex-1 bg-purple-600 text-white rounded py-2">
+                  {loading ? "Saving..." : editingBudget ? "Update" : "Create"}
+                </button>
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 p-4 border-t bg-gray-50">
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                className="px-4 py-2 bg-gray-900 text-white rounded-md hover:bg-black"
-              >
-                {editing ? "Update" : "Add"}
-              </button>
-            </div>
+            {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

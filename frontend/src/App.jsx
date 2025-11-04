@@ -3,7 +3,7 @@ import AuthPage from "./pages/AuthPage";
 import Dashboard from "./pages/Dashboard";
 import Transactions from "./pages/Transactions";
 import Categories from "./pages/Categories";
-import Budgets from "./pages/Budgets";
+import Budgets from "./pages/test";
 import Reports from "./pages/Reports";  
 import Layout from "./components/Layout";
 
@@ -20,6 +20,7 @@ function App() {
         <Route path="/reports" element={<Layout><Reports /></Layout>} />     
       </Routes>
     </Router>
+    
   );
 }
 

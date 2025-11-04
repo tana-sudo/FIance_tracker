@@ -5,13 +5,13 @@ import {
   getUserBudgets,
   updateBudget,
   removeBudget
-} from '../controllers/budgetController.js';
+} from '../controllers/budget_controller.js';
 
 const router = express.Router();
 
-router.post('/', verifyToken, addBudget);
-router.get('/', verifyToken, getUserBudgets);
-router.put('/:budget_id', verifyToken, updateBudget);
-router.delete('/:budget_id', verifyToken, removeBudget);
+router.post('/add_budget', verifyToken, addBudget);
+router.get('/get_budgets/:user_id', verifyToken, getUserBudgets);
+router.put('/updateBudget/:budget_id', verifyToken, updateBudget);
+router.delete('/removeBudget/:budget_id', verifyToken, removeBudget);
 
 export default router;
