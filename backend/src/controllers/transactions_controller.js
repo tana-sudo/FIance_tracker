@@ -4,7 +4,7 @@ import {
   getTransactionsByUser,
   updateTransactionData,
   deleteTransactionData
-} from '../models/transactions_model.js';
+} from '../models/transaction_model.js';
 
 
 
