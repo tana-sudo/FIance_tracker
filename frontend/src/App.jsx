@@ -3,8 +3,8 @@ import AuthPage from "./pages/AuthPage";
 import Dashboard from "./pages/Dashboard";
 import Transactions from "./pages/Transactions";
 import Categories from "./pages/Categories";
-import Budgets from "./pages/test";
-import Reports from "./pages/Reports";  
+import Budgets from "./pages/Budgets";
+import Reports from "./pages/test";  
 import Layout from "./components/Layout";
 
 
