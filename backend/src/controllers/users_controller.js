@@ -4,7 +4,8 @@ import {
   update_User,
   deleteUser,
   findUserByEmail,
-  findUserByUsername
+  findUserByUsername,
+  getAllUsers
 } from '../models/user_model.js';
 import bcrypt from 'bcryptjs';
 // Register a new user
@@ -48,6 +49,15 @@ export const registerUser = async (req, res) => {
         return res.status(500).json({ error: "Internal server error" });
     }
 };
+
+export const listUsers = async (req, res) => {
+  try {
+    const users = await getAllUsers();    
+    return res.status(200).json(users);
+  } catch (error) {
+    console.error("❌ Error fetching users:", error.message);
+    return res.status(500).json({ error: "Internal server error" });
+  } 
 
 export const updateUser = async (req, res) => {
   try {
