@@ -5,7 +5,7 @@ import {
   deleteBudgetData,
   getBudgetsWithSummary
 } from '../models/budget_model.js';
-
+import { logUserAction } from '../middlewares/logHelper.js';
 // Add new budget
 export const addBudget = async (req, res) => {
   try {
@@ -15,7 +15,7 @@ export const addBudget = async (req, res) => {
     if (!category_id || !amount) {
       return res.status(400).json({ message: 'Category and amount are required.' });
     }
-
+    await logUserAction(req, 'ADD_BUDGET', `User ${user_id} added a budget of ${amount} for category ${category_id}`);
     const newBudget = await insertBudget(user_id, category_id, amount, start_date, end_date);
     res.status(201).json(newBudget);
   } catch (error) {
@@ -41,6 +41,8 @@ export const updateBudget = async (req, res) => {
   try {
     const { budget_id } = req.params;
     const { amount, start_date, end_date } = req.body;
+    const user_id = req.user?.id;
+    await logUserAction(req, 'UPDATE_BUDGET', `User ${user_id} updated budget ${budget_id} to amount ${amount}`);
     const updatedBudget = await updateBudgetData(budget_id, amount, start_date, end_date);
     if (!updatedBudget) return res.status(404).json({ message: 'Budget not found.' });
     res.status(200).json(updatedBudget);
@@ -54,6 +56,8 @@ export const updateBudget = async (req, res) => {
 export const removeBudget = async (req, res) => {
   try {
     const { budget_id } = req.params;
+    const user_id = req.user?.id;
+    await logUserAction(req, 'DELETE_BUDGET', `User ${user_id} deleted budget ${budget_id}`);
     const deletedBudget = await deleteBudgetData(budget_id);
     if (!deletedBudget) return res.status(404).json({ message: 'Budget not found.' });
     res.status(200).json(deletedBudget);

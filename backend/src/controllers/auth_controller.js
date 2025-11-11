@@ -2,6 +2,9 @@ import bcrypt from 'bcryptjs';
 import { findUserByEmail } from '../models/user_model.js';
 import { generateAccessToken, generateRefreshToken } from '../middlewares/auth_middleware.js';
 import pool from '../config/db.js'; // your PostgreSQL pool
+import { logUserAction } from '../middlewares/logHelper.js';
+
+// User Login
 
 export const loginUser = async (req, res) => {
   try {
@@ -19,11 +22,15 @@ export const loginUser = async (req, res) => {
     if (!isMatch)
       return res.status(401).json({ message: 'Invalid credentials' });
 
+   
+
     // Generate tokens
     const payload = { id: user.id, email: user.email, role: user.role };
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
-
+    // ✅ Attach user info to req for logging
+    req.user = { id: user.id, email: user.email, role: user.role };
+    await logUserAction(req, 'LOGIN', `User ${user.id} logged in`);
     res.status(200).json({
       message: 'Login successful',
       accessToken,
@@ -36,6 +43,7 @@ export const loginUser = async (req, res) => {
         role: user.role
       }
     });
+     
   } catch (error) {
     console.error('❌ Login error:', error.stack);
     res.status(500).json({ message: 'Server error during login' });

@@ -1,4 +1,4 @@
-
+import { logUserAction } from '../middlewares/logHelper.js';
 import {
   insertTransaction,
   getTransactionsByUser,
@@ -16,7 +16,7 @@ export const addTransaction = async (req, res) => {
     if (!user_id || !amount || !type || !date) {
       return res.status(400).json({ error: 'user_id, amount, type, and date are required.' });
     }
-
+    await logUserAction(req, 'ADD_TRANSACTION', `User ${user_id} added a ${type} transaction of amount ${amount} on ${date}`);
     const newTransaction = await insertTransaction(user_id, amount, type, category_id, description, date);
     return res.status(201).json(newTransaction);
   } catch (error) {
@@ -42,12 +42,12 @@ export const updateTransaction = async (req, res) => {
   try {
     const transaction_id = req.params.transaction_id;
     const { amount, type, category_id, description, date } = req.body;
-
+    const user_id = req.user?.id;
     const updatedTransaction = await updateTransactionData(transaction_id, amount, type, category_id, description, date);
     if (!updatedTransaction) {
       return res.status(404).json({ error: 'Transaction not found.' });
     }
-
+    await logUserAction(req, 'UPDATE_TRANSACTION', `User ${user_id} updated transaction ${transaction_id} to amount ${amount}, type ${type}, date ${date}`);
     return res.status(200).json(updatedTransaction);
   } catch (error) {
     console.error('❌ Error updating transaction:', error.message);
@@ -58,12 +58,13 @@ export const updateTransaction = async (req, res) => {
 // Delete transaction
 export const removeTransaction = async (req, res) => {
   try {
+    const user_id = req.user?.id;
     const transaction_id = req.params.transaction_id;
     const deletedTransaction = await deleteTransactionData(transaction_id);
     if (!deletedTransaction) {
       return res.status(404).json({ error: 'Transaction not found.' });
     }
-
+    await logUserAction(req, 'DELETE_TRANSACTION', `User ${user_id} deleted transaction ${transaction_id}`);
     return res.status(200).json(deletedTransaction);
   } catch (error) {
     console.error('❌ Error deleting transaction:', error.message);

@@ -10,6 +10,7 @@ const checkAndCreateTable = async () => {
             role VARCHAR(20) DEFAULT 'user',
             gender varchar(10) ,
             dob varchar(20) , 
+            status VARCHAR(20) DEFAULT 'active',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     `;
