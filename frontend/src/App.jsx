@@ -6,7 +6,13 @@ import Categories from "./pages/Categories";
 import Budgets from "./pages/Budgets";
 import Reports from "./pages/test";  
 import Layout from "./components/Layout";
+import AdminLayout from "./components/AdminLayout";
+import UserManagement from "./admin/UserManagement";
+import CategoryManagement from "./admin/CategoryManagement";
+import TransactionManagement from "./admin/TransactionManagement";
+import AdminReports from "./admin/AdminReports";
 import { Toaster } from "react-hot-toast";
+
 
 function App() {
   return (
@@ -19,7 +25,15 @@ function App() {
         <Route path="/transactions" element={<Layout><Transactions /></Layout>} /> 
         <Route path="/categories" element={<Layout><Categories /></Layout>} />
         <Route path="/budgets" element={<Layout><Budgets /></Layout>} />
-        <Route path="/reports" element={<Layout><Reports /></Layout>} />     
+        <Route path="/reports" element={<Layout><Reports /></Layout>} /> 
+
+        <AdminLayout>
+          {/* Additional admin routes can be added here */}
+          <Route path="/admin/users" element={<UserManagement />} />
+          <Route path="/admin/categories" element={<CategoryManagement />} />
+          <Route path="/admin/transactions" element={<TransactionManagement />} />
+          <Route path="/admin/reports" element={<AdminReports />}/>
+        </AdminLayout>
       </Routes>
     </Router>
     

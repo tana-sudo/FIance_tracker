@@ -40,11 +40,11 @@ export default function AdminLayout({ children }) {
   };
 
   const navItems = [
-    { name: "User Management", icon: Users, path: "/admin/users" },
-    { name: "Transactions", icon: ArrowUpDown, path: "/admin/transactions" },
-    { name: "Categories", icon: Tag, path: "/admin/categories" },
-    { name: "Reports", icon: FileText, path: "/admin/reports" },
-    { name: "Settings", icon: Settings, path: "/admin/settings" },
+    { name: "User Management", icon: Users, path: "./admin/UserMangement" },
+    { name: "Transactions", icon: ArrowUpDown, path: "./admin/Transactions" },
+    { name: "Categories", icon: Tag, path: "./admin/CategoryManagement" },
+    { name: "Reports", icon: FileText, path: "./admin/Reports" },
+  
   ];
 
   if (!admin) {
