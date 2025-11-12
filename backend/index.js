@@ -23,6 +23,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/budgets', budgetRoutes);
+console.log('[Mount] /api/auditlogs routes');
 app.use('/api/auditlogs', auditLogRoutes);
 
 

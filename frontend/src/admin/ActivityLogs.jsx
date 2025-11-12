@@ -71,15 +71,19 @@ export default function ActivityLogs() {
         throw new Error("Admins only: Activity Logs shows all users' activity.");
       }
 
+      console.log('[ActivityLogs] Fetching', adminEndpoint);
       let res = await fetch(adminEndpoint, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      console.log('[ActivityLogs] Response', adminEndpoint, res.status);
 
       if (res.status === 404) {
         // Try alias if primary route not found
+        console.warn('[ActivityLogs] Primary 404, trying alias', adminAlias);
         res = await fetch(adminAlias, {
           headers: { Authorization: `Bearer ${token}` }
         });
+        console.log('[ActivityLogs] Response', adminAlias, res.status);
       }
 
       if (!res.ok) {

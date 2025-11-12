@@ -2,6 +2,7 @@ import { getAuditLogsByUser, getAllAuditLogs } from '../models/auditlogs_model.j
 
 export const getMyAuditLogs = async (req, res) => {
   try {
+    console.log('[AuditLogs] GET /user invoked by', req.user?.id);
     const user_id = req.user?.id;
     if (!user_id) return res.status(401).json({ message: 'Unauthorized' });
     const logs = await getAuditLogsByUser(user_id);
@@ -14,6 +15,7 @@ export const getMyAuditLogs = async (req, res) => {
 
 export const getAllAuditLogsController = async (req, res) => {
   try {
+    console.log('[AuditLogs] GET /all invoked by', req.user?.id, 'role:', req.user?.role);
     const logs = await getAllAuditLogs(1000);
     return res.status(200).json(logs);
   } catch (error) {
