@@ -31,6 +31,7 @@ function App() {
           <Route path="/reports" element={<Layout><Reports /></Layout>} /> 
           <Route path="/notifications" element={<Layout><NotificationsPage /></Layout>} />
           <Route path="/profile" element={<Layout><Profile /></Layout>} />
+          <Route path="/admin/profile" element={<AdminLayout><Profile /></AdminLayout>} />
 
            {/* Additional admin routes can be added here */}
             < Route path="/users" element={<AdminLayout><UserManagement /></AdminLayout>}/>

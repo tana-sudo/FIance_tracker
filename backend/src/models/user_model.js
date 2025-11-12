@@ -62,6 +62,18 @@ export const update_User = async (id,username ,fname, email,role ,gender, dob , 
   return result.rows[0];
 };
 
+// ✅ Update user password (admin action)
+export const updateUserPassword = async (id, hashedPassword) => {
+  const result = await pool.query(
+    `UPDATE users
+     SET password = $1
+     WHERE id = $2
+     RETURNING id, username, name, email, role, gender, dob, status, created_at AS "createdAt"`,
+    [hashedPassword, id]
+  );
+  return result.rows[0];
+};
+
 // ✅ Delete user
 export const deleteUser = async (id) => {
   const result = await pool.query(
@@ -75,7 +87,7 @@ export const deleteUser = async (id) => {
 
 // ✅ Find users
 export const findUserByEmail = async (email) => {
-  const result = await pool.query(`SELECT * FROM users WHERE email = $1`, [email]);
+  const result = await pool.query(`SELECT * FROM users WHERE LOWER(email) = LOWER($1)`, [email]);
   return result.rows[0];
 };
 

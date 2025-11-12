@@ -59,8 +59,8 @@ export default function AdminLayout({ children }) {
             className="flex items-center gap-2 mt-3 p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors"
             role="button"
             tabIndex={0}
-            onClick={() => handleNavigation('/profile')}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleNavigation('/profile'); }}
+            onClick={() => handleNavigation('/admin/profile')}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleNavigation('/admin/profile'); }}
           >
             <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
               {(admin.name?.[0] || admin.username?.[0] || "A").toUpperCase()}

@@ -6,7 +6,8 @@ import {
   findUserByEmail,
   findUserByUsername,
   getAllUsers,
-  findUserById
+  findUserById,
+  updateUserPassword
 } from '../models/user_model.js';
 import bcrypt from 'bcryptjs';
 
@@ -31,10 +32,11 @@ export const registerUser = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // ✅ Insert new user into DB
+    const normalizedEmail = (email || '').trim().toLowerCase();
     const newUser = await insertUserData(
       username, 
       fname, 
-      email, 
+      normalizedEmail, 
       hashedPassword, 
       role, 
       gender, 
@@ -120,6 +122,34 @@ export const removeUser = async (req, res) => {
   } catch (error) {
     console.error("❌ Error deleting user:", error.message);
     return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// ✅ Admin: Change a user's password
+export const changeUserPassword = async (req, res) => {
+  try {
+    const admin = req.user; // set by verifyToken
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    if (!id) return res.status(400).json({ message: 'User id is required' });
+    if (!newPassword) return res.status(400).json({ message: 'New password is required' });
+
+    // Basic password policy: min 8 chars, letters + numbers
+    const valid = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(newPassword);
+    if (!valid) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters and include letters and numbers' });
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    const updated = await updateUserPassword(id, hashed);
+    if (!updated) return res.status(404).json({ message: 'User not found' });
+
+    await logUserAction(req, 'CHANGE_PASSWORD', `Admin ${admin?.id} changed password for user ${id}`);
+    return res.status(200).json({ message: 'Password updated successfully', user: updated });
+  } catch (error) {
+    console.error('❌ Error changing user password:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 

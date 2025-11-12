@@ -52,6 +52,12 @@ Navigate("/", { replace: true });
   const [sortConfig, setSortConfig] = useState({ key: "id", direction: "asc" });
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Change Password modal state
+  const [passwordModal, setPasswordModal] = useState(false);
+  const [passwordUser, setPasswordUser] = useState(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
   const API_BASE = "http://localhost:3000/api";
 
   useEffect(() => {
@@ -133,6 +139,13 @@ Navigate("/", { replace: true });
       });
     }
     setUserModal(true);
+  };
+
+  const openPasswordModal = (user) => {
+    setPasswordUser(user);
+    setNewPassword("");
+    setConfirmPassword("");
+    setPasswordModal(true);
   };
 
   const handleUserSubmit = async () => {
@@ -234,6 +247,31 @@ Navigate("/", { replace: true });
       if (!res.ok) throw new Error(data.message || "Delete failed");
       showToast("User deleted successfully");
       fetchUsers();
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
+
+  const handleChangePasswordSubmit = async () => {
+    if (!passwordUser) return;
+    if (!newPassword) return showToast("New password is required", "error");
+    if (newPassword !== confirmPassword) return showToast("Passwords do not match", "error");
+    if (!/^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(newPassword)) {
+      return showToast("Password must be 8+ chars and include letters and numbers", "error");
+    }
+    try {
+      const res = await fetch(`${API_BASE}/users/${passwordUser.id}/password`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || data.message || "Failed to update password");
+      showToast("Password updated successfully");
+      setPasswordModal(false);
     } catch (err) {
       showToast(err.message, "error");
     }
@@ -746,6 +784,10 @@ Navigate("/", { replace: true });
                     <button className="text-blue-500 hover:text-blue-700" onClick={() => openUserModal(user)}>
                       <Edit size={18} />
                     </button>
+                    <button className="text-indigo-600 hover:text-indigo-800" onClick={() => openPasswordModal(user)} title="Change Password">
+                      {/* simple key icon replacement using text */}
+                      <span className="font-semibold text-sm">Pwd</span>
+                    </button>
                     <button className="text-red-500 hover:text-red-700" onClick={() => handleDeleteUser(user.id)}>
                       <Trash2 size={18} />
                     </button>
@@ -855,6 +897,56 @@ Navigate("/", { replace: true });
                 </button>
                 <button onClick={handleUserSubmit} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
                   {editUser ? "Update" : "Create"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Password Modal */}
+      {passwordModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-start z-50 overflow-y-auto" onClick={() => setPasswordModal(false)}>
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4 my-8 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Change Password</h2>
+              <button onClick={() => setPasswordModal(false)} className="text-gray-500 hover:text-gray-700">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block font-medium mb-1">User</label>
+                <div className="border p-2 rounded bg-gray-50">
+                  {passwordUser ? `${passwordUser.username} (${passwordUser.email})` : ""}
+                </div>
+              </div>
+              <div>
+                <label className="block font-medium mb-1">New Password</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full border p-2 rounded"
+                  placeholder="Minimum 8 characters, letters + numbers"
+                />
+              </div>
+              <div>
+                <label className="block font-medium mb-1">Confirm Password</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full border p-2 rounded"
+                  placeholder="Re-enter new password"
+                />
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <button onClick={() => setPasswordModal(false)} className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400">
+                  Cancel
+                </button>
+                <button onClick={handleChangePasswordSubmit} className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
+                  Update Password
                 </button>
               </div>
             </div>
