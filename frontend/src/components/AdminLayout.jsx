@@ -1,26 +1,19 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import {
-  Users,
-  ArrowUpDown,
-  Tag,
-  FileText,
-  Settings,
-  LogOut,
-  Shield,
-} from "lucide-react";
+import { Users, ArrowUpDown, Tag, FileText, LogOut, Shield } from "lucide-react";
 
 export default function AdminLayout({ children }) {
   const [admin, setAdmin] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Load admin from localStorage
   useEffect(() => {
     const adminData = localStorage.getItem("user");
     const token = localStorage.getItem("accessToken");
 
     if (!adminData || !token) {
-      navigate("/"); // Redirect if not logged in
+      navigate("/", { replace: true });
       return;
     }
 
@@ -28,7 +21,7 @@ export default function AdminLayout({ children }) {
       setAdmin(JSON.parse(adminData));
     } catch (error) {
       console.error("Error parsing admin data:", error);
-      navigate("/");
+      navigate("/", { replace: true });
     }
   }, [navigate]);
 
@@ -36,16 +29,23 @@ export default function AdminLayout({ children }) {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
-    navigate("/");
+    navigate("/", { replace: true });
   };
 
   const navItems = [
-    { name: "User Management", icon: Users, path: "./admin/UserMangement" },
-    { name: "Transactions", icon: ArrowUpDown, path: "./admin/Transactions" },
-    { name: "Categories", icon: Tag, path: "./admin/CategoryManagement" },
-    { name: "Reports", icon: FileText, path: "./admin/Reports" },
-  
+    { name: "User Management", icon: Users, path: "/users" },
+    { name: "Transactions", icon: ArrowUpDown, path: "/transaction" },
+    { name: "Categories", icon: Tag, path: "/category" },
+     {name: "Activities", icon: Shield, path: "/activites" },
+    { name: "Reports", icon: FileText, path: "/report" },
+   
   ];
+
+  // Navigate to a tab
+  const handleNavigation = (path) => {
+    navigate(path, { replace: true }); // absolute path
+    window.scrollTo(0, 0); // reset scroll
+  };
 
   if (!admin) {
     return (
@@ -61,8 +61,8 @@ export default function AdminLayout({ children }) {
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm">
-        {/* Logo */}
+      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
+        {/* Logo & Admin Info */}
         <div className="p-6 border-b border-gray-200">
           <h1 className="text-2xl font-bold text-blue-600 mb-1">Admin Panel</h1>
           <div className="flex items-center gap-2 mt-3 p-2 bg-gray-50 rounded-lg">
@@ -79,27 +79,30 @@ export default function AdminLayout({ children }) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 overflow-y-auto">
+        <nav className="flex-1 p-4">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-4">
             Management
           </p>
-          {navItems.map((item) => (
-            <button
-              key={item.name}
-              onClick={() => navigate(item.path)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-all ${
-                location.pathname === item.path
-                  ? "bg-blue-50 text-blue-600 font-medium"
-                  : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-              }`}
-            >
-              <item.icon size={20} />
-              <span>{item.name}</span>
-            </button>
-          ))}
+          {navItems.map((item) => {
+            const isActive = location.pathname === item.path;
+            return (
+              <button
+                key={item.name}
+                onClick={() => handleNavigation(item.path)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-all ${
+                  isActive
+                    ? "bg-blue-50 text-blue-600 font-medium"
+                    : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                }`}
+              >
+                <item.icon size={20} />
+                <span>{item.name}</span>
+              </button>
+            );
+          })}
         </nav>
 
-        {/* Logout */}
+        {/* Sign Out */}
         <div className="p-4 border-t border-gray-200">
           <button
             onClick={handleLogout}
@@ -112,18 +115,8 @@ export default function AdminLayout({ children }) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto bg-gray-50">
-        <header className="sticky top-0 bg-white border-b border-gray-200 flex items-center justify-between px-6 py-4 shadow-sm">
-          <div className="flex items-center gap-2 text-gray-700 font-semibold">
-            <Shield size={20} className="text-blue-600" />
-            <span>Admin Dashboard</span>
-          </div>
-          <p className="text-sm text-gray-500">
-            Welcome back, {admin.name || admin.username} 👋
-          </p>
-        </header>
-
-        <div className="p-6">{children}</div>
+      <main className="flex-1 overflow-y-auto p-6">
+        {children}
       </main>
     </div>
   );

@@ -14,9 +14,16 @@ export default function AdminReports() {
   const [filterUser, setFilterUser] = useState("");
 
   const API_BASE = "http://localhost:3000/api";
+  const token = localStorage.getItem("accessToken");
+  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const isAdmin = currentUser?.role === "admin";
 
   useEffect(() => {
-    fetchData();
+    if (isAdmin) {
+      fetchData();
+    } else {
+      fetchUserScopedData();
+    }
   }, []);
 
   const showToast = (message, type = "success") => {
@@ -28,20 +35,110 @@ export default function AdminReports() {
     setLoading(true);
     try {
       const [txRes, catRes, userRes] = await Promise.all([
-        fetch(`${API_BASE}/transactions`),
-        fetch(`${API_BASE}/categories`),
+        // Admin-only endpoints
+        fetch(`${API_BASE}/transactions/getalltransactions`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(`${API_BASE}/categories/getcategories`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
         fetch(`${API_BASE}/users/getUsers`)
       ]);
+
+      if (!txRes.ok || !catRes.ok || !userRes.ok) {
+        throw new Error("Failed to fetch data from server");
+      }
 
       const txData = await txRes.json();
       const catData = await catRes.json();
       const userData = await userRes.json();
 
-      setTransactions(txData);
-      setCategories(catData);
-      setUsers(userData);
+      const catMap = Array.isArray(catData)
+        ? catData.reduce((acc, c) => {
+            const id = c.category_id ?? c.id;
+            acc[id] = c.name;
+            return acc;
+          }, {})
+        : {};
+
+      const normalized = Array.isArray(txData)
+        ? txData.map(tx => ({
+            ...tx,
+            type: (tx.type || tx.transaction_type || "").toLowerCase(),
+            amount: typeof tx.amount === "string"
+              ? parseFloat(String(tx.amount).replace(/[^\d.-]/g, ""))
+              : parseFloat(tx.amount || 0),
+            userId: tx.user_id,
+            category: catMap[tx.category_id] || "Uncategorized",
+            date: tx.date
+          }))
+        : [];
+
+      setTransactions(normalized);
+      setCategories(Array.isArray(catData) ? catData : []);
+      setUsers(Array.isArray(userData) ? userData : []);
+      showToast(`Loaded ${normalized.length} transactions`);
     } catch (err) {
-      showToast("Failed to fetch data", "error");
+      console.error("Failed to fetch admin data:", err);
+      showToast("Failed to fetch data: " + err.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchUserScopedData = async () => {
+    setLoading(true);
+    try {
+      const userId = currentUser?.id;
+      if (!userId || !token) {
+        throw new Error("Missing user or token");
+      }
+      const [txRes, catRes, userRes] = await Promise.all([
+        fetch(`${API_BASE}/transactions/gettransactions/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(`${API_BASE}/categories/allcategories/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(`${API_BASE}/users/getUsers`)
+      ]);
+
+      if (!txRes.ok || !catRes.ok || !userRes.ok) {
+        throw new Error("Failed to fetch user-scoped data from server");
+      }
+
+      const txData = await txRes.json();
+      const catData = await catRes.json();
+      const userData = await userRes.json();
+
+      const catMap = Array.isArray(catData)
+        ? catData.reduce((acc, c) => {
+            const id = c.category_id ?? c.id;
+            acc[id] = c.name;
+            return acc;
+          }, {})
+        : {};
+
+      const normalized = Array.isArray(txData)
+        ? txData.map(tx => ({
+            ...tx,
+            type: (tx.type || tx.transaction_type || "").toLowerCase(),
+            amount: typeof tx.amount === "string"
+              ? parseFloat(String(tx.amount).replace(/[^\d.-]/g, ""))
+              : parseFloat(tx.amount || 0),
+            userId: tx.user_id,
+            category: catMap[tx.category_id] || "Uncategorized",
+            date: tx.date
+          }))
+        : [];
+
+      setTransactions(normalized);
+      setCategories(Array.isArray(catData) ? catData : []);
+      setUsers(Array.isArray(userData) ? userData : [currentUser]);
+      showToast(`Loaded ${normalized.length} transactions for you`);
+    } catch (err) {
+      console.error("Failed to fetch user data:", err);
+      showToast("Failed to fetch your data: " + err.message, "error");
     } finally {
       setLoading(false);
     }
@@ -203,7 +300,9 @@ export default function AdminReports() {
           </select>
           <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="border p-2 rounded">
             <option value="">All Categories</option>
-            {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
+            {categories.map(cat => (
+              <option key={cat.category_id ?? cat.id} value={cat.name}>{cat.name}</option>
+            ))}
           </select>
         </div>
       </div>

@@ -6,17 +6,18 @@ export default function Categories() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState({ show: false, message: "", type: "" });
+  const [searchQuery, setSearchQuery] = useState("");
   
   const [categoryModal, setCategoryModal] = useState(false);
   const [editCategory, setEditCategory] = useState(null);
   const [categoryForm, setCategoryForm] = useState({ 
     name: "", 
-    type: "expense", 
-    icon: "💰", 
-    color: "#0088FE" 
+    type: "Global" 
   });
 
   const API_BASE = "http://localhost:3000/api";
+  const token = localStorage.getItem("accessToken");
+  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
 
   useEffect(() => {
     fetchData();
@@ -31,17 +32,31 @@ export default function Categories() {
     setLoading(true);
     try {
       const [catRes, txRes] = await Promise.all([
-        fetch(`${API_BASE}/categories`),
-        fetch(`${API_BASE}/transactions`)
+        fetch(`${API_BASE}/categories/getcategories`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(`${API_BASE}/transactions/getalltransactions`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
       ]);
 
-      const catData = await catRes.json();
-      const txData = await txRes.json();
+      // If transactions call is unauthorized, fall back to user-scoped transactions
+      let catData = await catRes.json();
+      let txData = null;
+      if (txRes.status === 401 || txRes.status === 403) {
+        const myTxRes = await fetch(`${API_BASE}/transactions/gettransactions/${currentUser?.id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        txData = await myTxRes.json();
+      } else {
+        txData = await txRes.json();
+      }
 
-      setCategories(catData);
-      setTransactions(txData);
+      setCategories(Array.isArray(catData) ? catData : []);
+      setTransactions(Array.isArray(txData) ? txData : []);
     } catch (err) {
-      showToast("Failed to fetch data", "error");
+      console.error("CategoryManagement fetch error:", err);
+      showToast("Failed to fetch data. Please log in.", "error");
     } finally {
       setLoading(false);
     }
@@ -49,7 +64,7 @@ export default function Categories() {
 
   const openCategoryModal = (category = null) => {
     setEditCategory(category);
-    setCategoryForm(category || { name: "", type: "expense", icon: "💰", color: "#0088FE" });
+    setCategoryForm(category ? { name: category.name || "", type: "Global" } : { name: "", type: "Global" });
     setCategoryModal(true);
   };
 
@@ -57,12 +72,14 @@ export default function Categories() {
     if (!categoryForm.name) return showToast("Category name required", "error");
 
     try {
-      const endpoint = editCategory ? `${API_BASE}/categories/${editCategory.id}` : `${API_BASE}/categories`;
+      const endpoint = editCategory
+        ? `${API_BASE}/categories/update_categories/${editCategory.category_id}`
+        : `${API_BASE}/categories/new_categories`;
       const method = editCategory ? "PUT" : "POST";
       const res = await fetch(endpoint, {
         method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(categoryForm)
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: categoryForm.name, type: "Global" })
       });
 
       if (!res.ok) throw new Error("Operation failed");
@@ -74,10 +91,13 @@ export default function Categories() {
     }
   };
 
-  const handleDeleteCategory = async (id) => {
+  const handleDeleteCategory = async (category_id) => {
     if (!window.confirm("Delete this category?")) return;
     try {
-      const res = await fetch(`${API_BASE}/categories/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/categories/del-categories/${category_id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (!res.ok) throw new Error("Delete failed");
       showToast("Category deleted");
       fetchData();
@@ -86,11 +106,24 @@ export default function Categories() {
     }
   };
 
-  const categoryUsage = categories.map(cat => ({
-    ...cat,
-    count: transactions.filter(t => t.category === cat.name).length,
-    total: transactions.filter(t => t.category === cat.name).reduce((sum, t) => sum + parseFloat(t.amount), 0)
-  }));
+  const categoryUsage = Array.isArray(categories)
+    ? categories.map(cat => {
+        const catId = cat.category_id ?? cat.id;
+        const matchingTx = Array.isArray(transactions)
+          ? transactions.filter(t => (t.category_id === catId) || (t.category === cat.name))
+          : [];
+        const total = matchingTx.reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+        return {
+          ...cat,
+          count: matchingTx.length,
+          total
+        };
+      })
+    : [];
+
+  const filteredCategoryUsage = categoryUsage.filter(cat =>
+    cat.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen bg-gray-100 p-4">
@@ -113,51 +146,46 @@ export default function Categories() {
         </button>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow text-center">
-          <h2 className="text-lg font-semibold">Total Categories</h2>
-          <p className="text-2xl font-bold">{categories.length}</p>
+      {/* Summary Card */}
+      <div className="grid grid-cols-1 gap-4 mb-6">
+        <div className="p-5 rounded-lg shadow text-center bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200">
+          <h2 className="text-lg font-semibold text-blue-900">Total Categories</h2>
+          <p className="text-3xl font-extrabold text-blue-800">{categories.length}</p>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow text-center">
-          <h2 className="text-lg font-semibold">Income Categories</h2>
-          <p className="text-2xl font-bold text-green-600">{categories.filter(c => c.type === "income").length}</p>
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-sm text-gray-600">
+          Showing {filteredCategoryUsage.length} of {categoryUsage.length}
         </div>
-        <div className="bg-white p-4 rounded-lg shadow text-center">
-          <h2 className="text-lg font-semibold">Expense Categories</h2>
-          <p className="text-2xl font-bold text-red-600">{categories.filter(c => c.type === "expense").length}</p>
-        </div>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="border p-2 rounded w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Search categories..."
+        />
       </div>
 
       {/* Categories Table */}
       <div className="bg-white rounded-lg shadow overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+          <thead className="bg-gray-50 sticky top-0 z-10">
             <tr>
-              <th className="p-3 text-left">Icon</th>
               <th className="p-3 text-left">Name</th>
               <th className="p-3 text-left">Type</th>
-              <th className="p-3 text-left">Color</th>
               <th className="p-3 text-left">Usage Count</th>
               <th className="p-3 text-left">Total Amount</th>
               <th className="p-3 text-left">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {categoryUsage.map(cat => (
-              <tr key={cat.id} className="border-b hover:bg-gray-50">
-                <td className="p-3 text-2xl">{cat.icon}</td>
+            {filteredCategoryUsage.map(cat => (
+              <tr key={cat.category_id} className="border-b hover:bg-gray-50">
                 <td className="p-3 font-medium">{cat.name}</td>
                 <td className="p-3">
-                  <span className={`px-2 py-1 rounded text-xs ${cat.type === "income" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                    {cat.type}
-                  </span>
-                </td>
-                <td className="p-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded" style={{ backgroundColor: cat.color }}></div>
-                    {cat.color}
-                  </div>
+                  <span className={`px-2 py-1 rounded text-xs ${cat.type === "Global" ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-800"}`}>{cat.type}</span>
                 </td>
                 <td className="p-3">{cat.count} transactions</td>
                 <td className="p-3 font-semibold">${cat.total.toFixed(2)}</td>
@@ -165,7 +193,7 @@ export default function Categories() {
                   <button onClick={() => openCategoryModal(cat)} className="text-blue-600 hover:text-blue-800">
                     <Edit size={18} />
                   </button>
-                  <button onClick={() => handleDeleteCategory(cat.id)} className="text-red-600 hover:text-red-800">
+                  <button onClick={() => handleDeleteCategory(cat.category_id)} className="text-red-600 hover:text-red-800">
                     <Trash2 size={18} />
                   </button>
                 </td>
@@ -174,8 +202,17 @@ export default function Categories() {
           </tbody>
         </table>
         {loading && <p className="p-4 text-center text-gray-500">Loading...</p>}
-        {!loading && categories.length === 0 && (
-          <p className="p-4 text-center text-gray-500">No categories found. Add your first category!</p>
+        {!loading && filteredCategoryUsage.length === 0 && (
+          <div className="p-6 text-center text-gray-600">
+            <p className="text-lg mb-2">No categories found.</p>
+            <p className="mb-4">Try adjusting your search or add a new category.</p>
+            <button
+              onClick={() => openCategoryModal()}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            >
+              <Plus size={16} className="inline mr-1" /> Add Category
+            </button>
+          </div>
         )}
       </div>
 
@@ -202,35 +239,14 @@ export default function Categories() {
               </div>
               <div>
                 <label className="block font-medium mb-1">Type</label>
-                <select
-                  value={categoryForm.type}
-                  onChange={(e) => setCategoryForm({ ...categoryForm, type: e.target.value })}
-                  className="w-full border p-2 rounded"
-                >
-                  <option value="expense">Expense</option>
-                  <option value="income">Income</option>
-                </select>
-              </div>
-              <div>
-                <label className="block font-medium mb-1">Icon (Emoji)</label>
                 <input
                   type="text"
-                  value={categoryForm.icon}
-                  onChange={(e) => setCategoryForm({ ...categoryForm, icon: e.target.value })}
-                  className="w-full border p-2 rounded"
-                  placeholder="💰"
-                />
-                <p className="text-xs text-gray-500 mt-1">Use any emoji or symbol</p>
-              </div>
-              <div>
-                <label className="block font-medium mb-1">Color</label>
-                <input
-                  type="color"
-                  value={categoryForm.color}
-                  onChange={(e) => setCategoryForm({ ...categoryForm, color: e.target.value })}
-                  className="w-full border p-2 rounded h-10"
+                  value="Global"
+                  readOnly
+                  className="w-full border p-2 rounded bg-gray-100 text-gray-700"
                 />
               </div>
+              {/* Icon and Color removed: only name is required; type enforced as Global */}
               <div className="flex justify-end gap-2 mt-4">
                 <button onClick={() => setCategoryModal(false)} className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400">
                   Cancel

@@ -72,4 +72,13 @@ export const deleteTransactionData = async (transaction_id) => {
   return result.rows[0];
 };
 
+export const getAllTransactionsModel = async () => {
+  const result = await con.query(
+    `SELECT transaction_id, user_id, amount, type, category_id, description, date, created_at, updated_at   
+      FROM transactions
+      ORDER BY date DESC`
+  );
+  return result.rows;
+};
+
 export { checkAndCreateTransactionsTable };

@@ -43,7 +43,7 @@ export default function Layout({ children }) {
     { name: 'Transactions', icon: ArrowUpDown, path: '/transactions' },
     { name: 'Budgets', icon: Target, path: '/budgets' },
     { name: 'Categories', icon: Tag, path: '/categories' },
-    { name: 'Reports', icon: FileText, path: '/reports' },
+    { name: 'Reports', icon: FileText, path: '/reports' }, 
   ];
 
   if (!user) {
@@ -66,11 +66,11 @@ export default function Layout({ children }) {
           <h1 className="text-2xl font-bold text-blue-600 mb-1">Finance Tracker</h1>
           <div className="flex items-center gap-2 mt-3 p-2 bg-gray-50 rounded-lg">
             <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
-              {(user.fname?.[0] || user.username?.[0] || 'U').toUpperCase()}
+              {((user.fname || user.name || user.username || 'U')[0]).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">
-                {user.fname || user.username}
+                {user.fname || user.name || user.username}
               </p>
               <p className="text-xs text-gray-500 truncate">{user.email}</p>
             </div>

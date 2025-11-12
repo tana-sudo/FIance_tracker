@@ -1,22 +1,50 @@
 import React, { useState, useEffect } from "react";
 import { Edit, Trash2, Download, X, SortAsc, SortDesc } from "lucide-react";
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+import { Navigate } from "react-router-dom";
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
 const USERS_PER_PAGE = 10;
 
+
 export default function UserManagement() {
+const token = localStorage.getItem("accessToken");
+const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+const isAdmin = currentUser?.role === "admin";
+if (!token || !isAdmin) {
+Navigate("/", { replace: true });
+};
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState({ show: false, message: "", type: "" });
-  
+
   const [userModal, setUserModal] = useState(false);
   const [editUser, setEditUser] = useState(null);
   const [userForm, setUserForm] = useState({
-    username: "", fname: "", email: "", password: "",
-    role: "user", gender: "", dob: "", status: "active"
+    username: "",
+    fname: "",
+    email: "",
+    password: "",
+    role: "user",
+    gender: "",
+    dob: "",
+    status: "active",
   });
-  
+
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [userSearch, setUserSearch] = useState("");
   const [filterRole, setFilterRole] = useState("");
@@ -29,6 +57,34 @@ export default function UserManagement() {
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  const toISODateSafe = (value) => {
+    if (!value && value !== 0) return null;
+    try {
+      const isoValue = String(value).replace(" ", "T");
+      const d = new Date(isoValue);
+      if (isNaN(d.getTime())) return null;
+      return d.toISOString().slice(0, 10);
+    } catch {
+      return null;
+    }
+  };
+
+  const formatPrettyDate = (value) => {
+    if (!value && value !== 0) return "N/A";
+    try {
+      const isoValue = String(value).replace(" ", "T");
+      const d = new Date(isoValue);
+      if (isNaN(d.getTime())) return "N/A";
+      return d.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return "N/A";
+    }
+  };
 
   const showToast = (message, type = "success") => {
     setToast({ show: true, message, type });
@@ -51,82 +107,206 @@ export default function UserManagement() {
 
   const openUserModal = (user = null) => {
     setEditUser(user);
-    setUserForm(user ? { ...user, password: "" } : {
-      username: "", fname: "", email: "", password: "",
-      role: "user", gender: "", dob: "", status: "active"
-    });
+    if (user) {
+      // When editing, properly map the user data
+      setUserForm({
+        username: user.username || "",
+        fname: user.fname || user.name || "",
+        email: user.email || "",
+        password: "",
+        role: user.role || "user",
+        gender: user.gender || "",
+        dob: toISODateSafe(user.dob) || "",
+        status: user.status || "active",
+      });
+    } else {
+      // When creating new user
+      setUserForm({
+        username: "",
+        fname: "",
+        email: "",
+        password: "",
+        role: "user",
+        gender: "",
+        dob: "",
+        status: "active",
+      });
+    }
     setUserModal(true);
   };
 
   const handleUserSubmit = async () => {
-    if (!userForm.username || userForm.username.length < 3) return showToast("Username ≥ 3 chars", "error");
-    if (!userForm.email || !/\S+@\S+\.\S+/.test(userForm.email)) return showToast("Invalid email", "error");
-    if (!editUser && (!userForm.password || !/^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(userForm.password))) 
-      return showToast("Password ≥ 8 chars, letters+numbers", "error");
+    if (!userForm.username || userForm.username.length < 3)
+      return showToast("Username must be at least 3 characters", "error");
+    if (userForm.username.length > 50)
+      return showToast("Username must be less than 50 characters", "error");
+    if (!userForm.email || !/\S+@\S+\.\S+/.test(userForm.email))
+      return showToast("Invalid email", "error");
+    if (userForm.email.length > 100)
+      return showToast("Email must be less than 100 characters", "error");
+    if (userForm.fname && userForm.fname.length > 100)
+      return showToast("Full name must be less than 100 characters", "error");
+    if (
+      !editUser &&
+      (!userForm.password || !/^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(userForm.password))
+    )
+      return showToast("Password must be at least 8 characters with letters and numbers", "error");
 
     try {
-      const endpoint = editUser ? `${API_BASE}/users/updateuser/${editUser.id}` : `${API_BASE}/users/register`;
+      const endpoint = editUser
+        ? `${API_BASE}/users/updateuser/${editUser.id}`
+        : `${API_BASE}/users/register`;
       const method = editUser ? "PUT" : "POST";
+      
+      // Ensure all fields are within database limits and not empty
+      const username = (userForm.username || "").trim().substring(0, 50);
+      const fname = (userForm.fname || "").trim().substring(0, 100);
+      const email = (userForm.email || "").trim().substring(0, 100);
+      const role = (userForm.role || "user").substring(0, 20);
+      const gender = (userForm.gender || "").trim().substring(0, 10);
+      const dob = (userForm.dob || "").substring(0, 20);
+      const status = (userForm.status || "active").substring(0, 20);
+      
+      // Validate required fields after trimming
+      if (!username || username.length < 3) {
+        return showToast("Username is required (min 3 characters)", "error");
+      }
+      if (!email || !/\S+@\S+\.\S+/.test(email)) {
+        return showToast("Valid email is required", "error");
+      }
+      if (!fname || fname.length === 0) {
+        return showToast("Full name is required", "error");
+      }
+      
+      const payload = {
+        username,
+        fname,  // Always include fname
+        email,
+        role,
+        gender: gender || "",  // Send empty string if not provided
+        dob: dob || "",
+        status,
+      };
+
+      // Only include password for new users
+      if (!editUser && userForm.password) {
+        payload.password = userForm.password;
+      }
+      
+      console.log('Sending payload:', payload);
+      console.log('Field details:', {
+        username: `"${payload.username}" (${payload.username.length} chars)`,
+        fname: `"${payload.fname}" (${payload.fname.length} chars)`,
+        email: `"${payload.email}" (${payload.email.length} chars)`,
+        role: `"${payload.role}" (${payload.role.length} chars)`,
+        gender: payload.gender ? `"${payload.gender}" (${payload.gender.length} chars)` : 'undefined',
+        dob: payload.dob ? `"${payload.dob}" (${payload.dob.length} chars)` : 'undefined',
+        status: `"${payload.status}" (${payload.status.length} chars)`,
+      });
+
       const res = await fetch(endpoint, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(userForm)
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Operation failed");
-      showToast(editUser ? "User updated" : "User created");
+      
+      if (!res.ok) {
+        console.error('Backend error response:', data);
+        throw new Error(data.error || data.message || data.details || "Operation failed");
+      }
+      
+      showToast(editUser ? "User updated successfully" : "User created successfully");
       setUserModal(false);
       fetchUsers();
     } catch (err) {
+      console.error('Update error:', err);
       showToast(err.message, "error");
     }
   };
 
   const handleDeleteUser = async (id) => {
-    if (!window.confirm("Are you sure?")) return;
+    if (!window.confirm("Are you sure you want to delete this user?")) return;
     try {
       const res = await fetch(`${API_BASE}/users/deleteuser/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Delete failed");
-      showToast("User deleted");
+      showToast("User deleted successfully");
       fetchUsers();
     } catch (err) {
       showToast(err.message, "error");
     }
   };
 
-  const toggleUserStatus = async (id, status) => {
+  const toggleUserStatus = async (id, currentStatus) => {
     try {
+      const newStatus = currentStatus === "active" ? "inactive" : "active";
+      
+      // Find the user to get all their details
+      const user = users.find(u => u.id === id);
+      if (!user) {
+        return showToast("User not found", "error");
+      }
+      
+      // Send all required fields with just the status changed
       const res = await fetch(`${API_BASE}/users/updateuser/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: status === "active" ? "inactive" : "active" })
+        body: JSON.stringify({ 
+          username: user.username,
+          fname: user.fname || user.name,
+          email: user.email,
+          role: user.role,
+          gender: user.gender || "",
+          dob: user.dob || "",
+          status: newStatus
+        }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Status update failed");
-      showToast("Status updated");
+      if (!res.ok) throw new Error(data.error || data.message || "Status update failed");
+      showToast(`User ${newStatus === "active" ? "activated" : "deactivated"} successfully`);
       fetchUsers();
     } catch (err) {
+      console.error('Toggle status error:', err);
       showToast(err.message, "error");
     }
   };
 
   const handleBulkUserAction = async (action) => {
     if (selectedUsers.length === 0) return showToast("No users selected", "error");
+    
     try {
-      await Promise.all(selectedUsers.map(id => {
-        if (action === "delete") return fetch(`${API_BASE}/users/deleteuser/${id}`, { method: "DELETE" });
-        return fetch(`${API_BASE}/users/updateuser/${id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: action === "activate" ? "active" : "inactive" })
-        });
-      }));
-      showToast("Bulk action completed");
+      await Promise.all(
+        selectedUsers.map(async (id) => {
+          const user = users.find(u => u.id === id);
+          if (!user) return;
+          
+          if (action === "delete") {
+            return fetch(`${API_BASE}/users/deleteuser/${id}`, { method: "DELETE" });
+          }
+          
+          // For activate/deactivate, send all required fields
+          return fetch(`${API_BASE}/users/updateuser/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              username: user.username,
+              fname: user.fname || user.name,
+              email: user.email,
+              role: user.role,
+              gender: user.gender || "",
+              dob: user.dob || "",
+              status: action === "activate" ? "active" : "inactive"
+            }),
+          });
+        })
+      );
+      showToast("Bulk action completed successfully");
       setSelectedUsers([]);
       fetchUsers();
-    } catch {
+    } catch (err) {
+      console.error('Bulk action error:', err);
       showToast("Bulk action failed", "error");
     }
   };
@@ -138,79 +318,249 @@ export default function UserManagement() {
   };
 
   const sortedUsers = [...users]
-    .filter(u => (!userSearch || u.username.toLowerCase().includes(userSearch.toLowerCase()) || 
-                  u.email.toLowerCase().includes(userSearch.toLowerCase()) || 
-                  u.fname.toLowerCase().includes(userSearch.toLowerCase())))
-    .filter(u => !filterRole || u.role === filterRole)
-    .filter(u => !filterStatus || u.status === filterStatus)
+    .filter(
+      (u) =>
+        !userSearch ||
+        (u.username && u.username.toLowerCase().includes(userSearch.toLowerCase())) ||
+        (u.email && u.email.toLowerCase().includes(userSearch.toLowerCase())) ||
+        ((u.fname ?? u.name) && (u.fname ?? u.name).toLowerCase().includes(userSearch.toLowerCase()))
+    )
+    .filter((u) => !filterRole || u.role === filterRole)
+    .filter((u) => !filterStatus || u.status === filterStatus)
     .sort((a, b) => {
-      if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === "asc" ? -1 : 1;
-      if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === "asc" ? 1 : -1;
+      const av = a[sortConfig.key] ?? "";
+      const bv = b[sortConfig.key] ?? "";
+      if (av < bv) return sortConfig.direction === "asc" ? -1 : 1;
+      if (av > bv) return sortConfig.direction === "asc" ? 1 : -1;
       return 0;
     });
 
   const paginatedUsers = sortedUsers.slice((currentPage - 1) * USERS_PER_PAGE, currentPage * USERS_PER_PAGE);
-  const totalPages = Math.ceil(sortedUsers.length / USERS_PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(sortedUsers.length / USERS_PER_PAGE));
 
   const totalUsers = users.length;
-  const activeUsers = users.filter(u => u.status === "active").length;
-  const inactiveUsers = users.filter(u => u.status === "inactive").length;
+  const activeUsers = users.filter((u) => u.status === "active").length;
+  const inactiveUsers = users.filter((u) => u.status === "inactive").length;
 
   const roleDistribution = [
-    { name: "Admin", value: users.filter(u => u.role === "admin").length },
-    { name: "User", value: users.filter(u => u.role === "user").length }
+    { name: "Admin", value: users.filter((u) => u.role === "admin").length },
+    { name: "User", value: users.filter((u) => u.role === "user").length },
   ];
 
   const genderDistribution = [
-    { name: "Male", value: users.filter(u => u.gender === "male").length },
-    { name: "Female", value: users.filter(u => u.gender === "female").length },
-    { name: "Other", value: users.filter(u => u.gender === "other").length }
+    { name: "Male", value: users.filter((u) => u.gender === "male").length },
+    { name: "Female", value: users.filter((u) => u.gender === "female").length },
+    { name: "Other", value: users.filter((u) => u.gender === "other").length },
   ];
 
-  const newUsersLine = users.reduce((acc, u) => {
-    const date = new Date(u.createdAt).toISOString().slice(0, 10);
-    const existing = acc.find(d => d.date === date);
-    if (existing) existing.count++;
-    else acc.push({ date, count: 1 });
-    return acc;
-  }, []).sort((a, b) => new Date(a.date) - new Date(b.date));
+  const newUsersLine = users
+    .reduce((acc, u) => {
+      const date = toISODateSafe(u.createdAt);
+      if (!date) return acc;
+      const existing = acc.find((d) => d.date === date);
+      if (existing) existing.count++;
+      else acc.push({ date, count: 1 });
+      return acc;
+    }, [])
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-  const activeInactiveBar = [
-    { name: "Users", Active: activeUsers, Inactive: inactiveUsers }
-  ];
+  const activeInactiveBar = [{ name: "Users", Active: activeUsers, Inactive: inactiveUsers }];
+
+  const today = new Date();
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const sevenDaysAgo = new Date(startOfToday);
+  sevenDaysAgo.setDate(startOfToday.getDate() - 7);
+  const fourteenDaysAgo = new Date(startOfToday);
+  fourteenDaysAgo.setDate(startOfToday.getDate() - 14);
+
+  const usersJoinedThisWeek = users.filter((u) => {
+    const iso = toISODateSafe(u.createdAt);
+    if (!iso) return false;
+    const d = new Date(iso);
+    return d >= sevenDaysAgo && d < startOfToday.setDate(startOfToday.getDate() + 1);
+  }).length;
+
+  const usersJoinedLastWeek = users.filter((u) => {
+    const iso = toISODateSafe(u.createdAt);
+    if (!iso) return false;
+    const d = new Date(iso);
+    return d >= fourteenDaysAgo && d < sevenDaysAgo;
+  }).length;
+
+  const growthPercent =
+    usersJoinedLastWeek > 0
+      ? (((usersJoinedThisWeek - usersJoinedLastWeek) / usersJoinedLastWeek) * 100).toFixed(1)
+      : usersJoinedThisWeek > 0
+      ? "100.0"
+      : "—";
 
   const downloadCSV = (data, filename) => {
+    if (!data || !data.length) return showToast("No data to export", "error");
     const headers = Object.keys(data[0] || {});
-    const csv = [
-      headers.join(","),
-      ...data.map(row => headers.map(h => JSON.stringify(row[h] || "")).join(","))
-    ].join("\n");
-    
+    const csv = [headers.join(","), ...data.map((row) => headers.map((h) => JSON.stringify(row[h] || "")).join(","))].join("\n");
+
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
     a.click();
-    showToast("Export completed");
+    URL.revokeObjectURL(url);
+    showToast("Export completed successfully");
   };
 
   const exportUsers = () => {
     downloadCSV(users, `users-${new Date().toISOString().slice(0, 10)}.csv`);
   };
 
+  const generateWeeklyReport = () => {
+    const joinedThisWeekList = users
+      .filter((u) => {
+        const iso = toISODateSafe(u.createdAt);
+        if (!iso) return false;
+        const d = new Date(iso);
+        return d >= sevenDaysAgo;
+      })
+      .slice(0, 200);
+
+    const roleSummaryRows = roleDistribution
+      .map((r) => `<tr><td style="padding:6px 8px;border:1px solid #ddd">${r.name}</td><td style="padding:6px 8px;border:1px solid #ddd;text-align:right">${r.value}</td></tr>`)
+      .join("");
+
+    const genderSummaryRows = genderDistribution
+      .map((g) => `<tr><td style="padding:6px 8px;border:1px solid #ddd">${g.name}</td><td style="padding:6px 8px;border:1px solid #ddd;text-align:right">${g.value}</td></tr>`)
+      .join("");
+
+    const usersRows = joinedThisWeekList
+      .map(
+        (u) =>
+          `<tr>
+            <td style="padding:6px 8px;border:1px solid #ddd">${u.id ?? ""}</td>
+            <td style="padding:6px 8px;border:1px solid #ddd">${u.username ?? ""}</td>
+            <td style="padding:6px 8px;border:1px solid #ddd">${u.fname ?? u.name ?? ""}</td>
+            <td style="padding:6px 8px;border:1px solid #ddd">${u.email ?? ""}</td>
+            <td style="padding:6px 8px;border:1px solid #ddd">${u.role ?? ""}</td>
+            <td style="padding:6px 8px;border:1px solid #ddd">${formatPrettyDate(u.createdAt)}</td>
+          </tr>`
+      )
+      .join("");
+
+    const html = `
+      <html>
+        <head>
+          <title>Weekly Users Report</title>
+          <meta name="viewport" content="width=device-width,initial-scale=1" />
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial; color:#111; padding:20px; }
+            h1 { margin-bottom:6px; }
+            .meta { color:#666; margin-bottom:18px; }
+            .card { border:1px solid #e6e6e6; padding:12px; border-radius:6px; margin-bottom:12px; }
+            table { border-collapse: collapse; width:100%; margin-top:8px; }
+          </style>
+        </head>
+        <body>
+          <h1>Weekly Users Report</h1>
+          <div class="meta">Generated: ${new Date().toLocaleString()}</div>
+
+          <div class="card">
+            <h3>Overview</h3>
+            <table>
+              <tr><td style="padding:6px 8px;border:1px solid #ddd">Total Users</td><td style="padding:6px 8px;border:1px solid #ddd;text-align:right">${totalUsers}</td></tr>
+              <tr><td style="padding:6px 8px;border:1px solid #ddd">Active Users</td><td style="padding:6px 8px;border:1px solid #ddd;text-align:right">${activeUsers}</td></tr>
+              <tr><td style="padding:6px 8px;border:1px solid #ddd">Inactive Users</td><td style="padding:6px 8px;border:1px solid #ddd;text-align:right">${inactiveUsers}</td></tr>
+              <tr><td style="padding:6px 8px;border:1px solid #ddd">Joined This Week</td><td style="padding:6px 8px;border:1px solid #ddd;text-align:right">${usersJoinedThisWeek}</td></tr>
+              <tr><td style="padding:6px 8px;border:1px solid #ddd">Growth vs Last Week</td><td style="padding:6px 8px;border:1px solid #ddd;text-align:right">${growthPercent}%</td></tr>
+            </table>
+          </div>
+
+          <div class="card">
+            <h3>Role Summary</h3>
+            <table>${roleSummaryRows}</table>
+          </div>
+
+          <div class="card">
+            <h3>Gender Summary</h3>
+            <table>${genderSummaryRows}</table>
+          </div>
+
+          <div class="card">
+            <h3>Users Joined This Week (showing up to 200)</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th style="padding:6px 8px;border:1px solid #ddd">ID</th>
+                  <th style="padding:6px 8px;border:1px solid #ddd">Username</th>
+                  <th style="padding:6px 8px;border:1px solid #ddd">Full Name</th>
+                  <th style="padding:6px 8px;border:1px solid #ddd">Email</th>
+                  <th style="padding:6px 8px;border:1px solid #ddd">Role</th>
+                  <th style="padding:6px 8px;border:1px solid #ddd">Joined</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${usersRows || `<tr><td colspan="6" style="padding:8px;border:1px solid #ddd">No recent users</td></tr>`}
+              </tbody>
+            </table>
+          </div>
+
+          <div style="margin-top:18px; font-size:12px; color:#666">
+            Note: This report is generated from backend timestamps. Charts and deeper analytics available in the dashboard.
+          </div>
+        </body>
+      </html>
+    `;
+
+    const win = window.open("", "_blank", "noopener,noreferrer");
+    if (!win) {
+      showToast("Popup blocked. Allow popups to print/save PDF.", "error");
+      return;
+    }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => {
+      try {
+        win.print();
+      } catch (err) {
+        // ignore
+      }
+    }, 500);
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 p-4">
       {toast.show && (
-        <div className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${toast.type === "error" ? "bg-red-500" : "bg-green-500"} text-white`}>
+        <div
+          className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${
+            toast.type === "error" ? "bg-red-500" : "bg-green-500"
+          } text-white`}
+        >
           {toast.message}
         </div>
       )}
-      
-      <h1 className="text-3xl font-bold mb-6">User Management</h1>
+
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold">User Management</h1>
+        <div className="flex gap-2">
+          <button
+            onClick={generateWeeklyReport}
+            className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 flex items-center gap-2"
+            title="Open printable weekly report (save as PDF from browser)"
+          >
+            <Download size={16} /> Export Weekly Report (PDF)
+          </button>
+          <button
+            onClick={exportUsers}
+            className="bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600 flex items-center gap-2"
+            title="Export all users as CSV"
+          >
+            <Download size={16} /> Export CSV
+          </button>
+        </div>
+      </div>
 
       {/* Analytics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg shadow text-center">
           <h2 className="text-lg font-semibold">Total Users</h2>
           <p className="text-2xl font-bold">{totalUsers}</p>
@@ -223,6 +573,11 @@ export default function UserManagement() {
           <h2 className="text-lg font-semibold">Inactive Users</h2>
           <p className="text-2xl font-bold text-red-600">{inactiveUsers}</p>
         </div>
+        <div className="bg-white p-4 rounded-lg shadow text-center">
+          <h2 className="text-lg font-semibold">Joined This Week</h2>
+          <p className="text-2xl font-bold text-green-700">{usersJoinedThisWeek}</p>
+          <p className="text-sm text-gray-500">Growth: {growthPercent === "—" ? "No data" : `${growthPercent}%`}</p>
+        </div>
       </div>
 
       {/* Charts */}
@@ -234,7 +589,13 @@ export default function UserManagement() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis />
-              <Tooltip />
+              <Tooltip
+                labelFormatter={(date) => {
+                  const d = new Date(date);
+                  if (isNaN(d.getTime())) return date;
+                  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                }}
+              />
               <Legend />
               <Line type="monotone" dataKey="count" stroke="#8884d8" />
             </LineChart>
@@ -303,9 +664,6 @@ export default function UserManagement() {
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
-        <button onClick={exportUsers} className="bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600 flex items-center gap-2">
-          <Download size={18} /> Export CSV
-        </button>
       </div>
 
       {/* Action Buttons */}
@@ -332,63 +690,69 @@ export default function UserManagement() {
               <th className="p-2">
                 <input
                   type="checkbox"
-                  onChange={(e) => setSelectedUsers(e.target.checked ? paginatedUsers.map(u => u.id) : [])}
+                  onChange={(e) => setSelectedUsers(e.target.checked ? paginatedUsers.map((u) => u.id) : [])}
                   checked={selectedUsers.length === paginatedUsers.length && paginatedUsers.length > 0}
                 />
               </th>
-              {["id", "username", "fname", "email", "role", "gender", "status"].map(col => (
+              {["id", "username", "Full name", "email", "role", "gender", "status"].map((col) => (
                 <th key={col} className="p-2 cursor-pointer text-left" onClick={() => requestSort(col)}>
                   <div className="flex items-center gap-1">
                     {col.charAt(0).toUpperCase() + col.slice(1)}
-                    {sortConfig.key === col && (
-                      sortConfig.direction === "asc" ? <SortAsc size={14} /> : <SortDesc size={14} />
-                    )}
+                    {sortConfig.key === col && (sortConfig.direction === "asc" ? <SortAsc size={14} /> : <SortDesc size={14} />)}
                   </div>
                 </th>
               ))}
+              <th className="p-2">Created</th>
               <th className="p-2 text-left">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {paginatedUsers.map(user => (
-              <tr key={user.id} className="border-b hover:bg-gray-50">
-                <td className="p-2 text-center">
-                  <input
-                    type="checkbox"
-                    checked={selectedUsers.includes(user.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedUsers([...selectedUsers, user.id]);
-                      } else {
-                        setSelectedUsers(selectedUsers.filter(id => id !== user.id));
-                      }
-                    }}
-                  />
-                </td>
-                <td className="p-2">{user.id}</td>
-                <td className="p-2">{user.username}</td>
-                <td className="p-2">{user.fname}</td>
-                <td className="p-2">{user.email}</td>
-                <td className="p-2">{user.role}</td>
-                <td className="p-2">{user.gender}</td>
-                <td className="p-2">
-                  <span
-                    className={`px-2 py-1 rounded cursor-pointer ${user.status === "active" ? "bg-green-200 text-green-800" : "bg-red-200 text-red-800"}`}
-                    onClick={() => toggleUserStatus(user.id, user.status)}
-                  >
-                    {user.status}
-                  </span>
-                </td>
-                <td className="p-2 flex gap-2">
-                  <button className="text-blue-500 hover:text-blue-700" onClick={() => openUserModal(user)}>
-                    <Edit size={18} />
-                  </button>
-                  <button className="text-red-500 hover:text-red-700" onClick={() => handleDeleteUser(user.id)}>
-                    <Trash2 size={18} />
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {paginatedUsers.map((user) => {
+              const iso = toISODateSafe(user.createdAt);
+              const joinedDate = iso ? new Date(iso) : null;
+              const highlight = joinedDate && joinedDate >= sevenDaysAgo ? "bg-green-50" : "";
+
+              return (
+                <tr key={user.id} className={`border-b hover:bg-gray-50 ${highlight}`}>
+                  <td className="p-2 text-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedUsers.includes(user.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedUsers([...selectedUsers, user.id]);
+                        } else {
+                          setSelectedUsers(selectedUsers.filter((id) => id !== user.id));
+                        }
+                      }}
+                    />
+                  </td>
+                  <td className="p-2">{user.id}</td>
+                  <td className="p-2">{user.username}</td>
+                  <td className="p-2">{user.fname || user.name}</td>
+                  <td className="p-2">{user.email}</td>
+                  <td className="p-2">{user.role}</td>
+                  <td className="p-2">{user.gender}</td>
+                  <td className="p-2">
+                    <span
+                      className={`px-2 py-1 rounded cursor-pointer ${user.status === "active" ? "bg-green-200 text-green-800" : "bg-red-200 text-red-800"}`}
+                      onClick={() => toggleUserStatus(user.id, user.status)}
+                    >
+                      {user.status}
+                    </span>
+                  </td>
+                  <td className="p-2">{formatPrettyDate(user.createdAt)}</td>
+                  <td className="p-2 flex gap-2">
+                    <button className="text-blue-500 hover:text-blue-700" onClick={() => openUserModal(user)}>
+                      <Edit size={18} />
+                    </button>
+                    <button className="text-red-500 hover:text-red-700" onClick={() => handleDeleteUser(user.id)}>
+                      <Trash2 size={18} />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -396,11 +760,7 @@ export default function UserManagement() {
       {/* Pagination */}
       <div className="flex justify-center gap-2 mt-4 flex-wrap">
         {Array.from({ length: totalPages }, (_, i) => (
-          <button
-            key={i}
-            className={`px-3 py-1 rounded ${currentPage === i + 1 ? "bg-blue-500 text-white" : "bg-gray-200"}`}
-            onClick={() => setCurrentPage(i + 1)}
-          >
+          <button key={i} className={`px-3 py-1 rounded ${currentPage === i + 1 ? "bg-blue-500 text-white" : "bg-gray-200"}`} onClick={() => setCurrentPage(i + 1)}>
             {i + 1}
           </button>
         ))}
@@ -419,64 +779,59 @@ export default function UserManagement() {
             <div className="space-y-3">
               <div>
                 <label className="block font-medium mb-1">Full Name</label>
-                <input
-                  type="text"
-                  value={userForm.fname}
-                  onChange={(e) => setUserForm({ ...userForm, fname: e.target.value })}
-                  className="w-full border p-2 rounded"
-                  placeholder="Full Name"
+                <input 
+                  type="text" 
+                  value={userForm.fname} 
+                  onChange={(e) => setUserForm({ ...userForm, fname: e.target.value })} 
+                  className="w-full border p-2 rounded" 
+                  placeholder="Full Name" 
+                  maxLength={100}
                 />
               </div>
               <div>
                 <label className="block font-medium mb-1">Username</label>
-                <input
-                  type="text"
-                  value={userForm.username}
-                  onChange={(e) => setUserForm({ ...userForm, username: e.target.value })}
-                  className="w-full border p-2 rounded"
+                <input 
+                  type="text" 
+                  value={userForm.username} 
+                  onChange={(e) => setUserForm({ ...userForm, username: e.target.value })} 
+                  className="w-full border p-2 rounded" 
                   placeholder="Username"
+                  maxLength={50}
                 />
               </div>
               <div>
                 <label className="block font-medium mb-1">Email</label>
-                <input
-                  type="email"
-                  value={userForm.email}
-                  onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                  className="w-full border p-2 rounded"
+                <input 
+                  type="email" 
+                  value={userForm.email} 
+                  onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} 
+                  className="w-full border p-2 rounded" 
                   placeholder="Email"
+                  maxLength={100}
                 />
               </div>
               {!editUser && (
                 <div>
                   <label className="block font-medium mb-1">Password</label>
-                  <input
-                    type="password"
-                    value={userForm.password}
-                    onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                    className="w-full border p-2 rounded"
-                    placeholder="Password"
+                  <input 
+                    type="password" 
+                    value={userForm.password} 
+                    onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} 
+                    className="w-full border p-2 rounded" 
+                    placeholder="Password (min 8 chars, letters + numbers)" 
                   />
                 </div>
               )}
               <div>
                 <label className="block font-medium mb-1">Role</label>
-                <select
-                  value={userForm.role}
-                  onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
-                  className="w-full border p-2 rounded"
-                >
+                <select value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })} className="w-full border p-2 rounded">
                   <option value="user">User</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>
               <div>
                 <label className="block font-medium mb-1">Gender</label>
-                <select
-                  value={userForm.gender}
-                  onChange={(e) => setUserForm({ ...userForm, gender: e.target.value })}
-                  className="w-full border p-2 rounded"
-                >
+                <select value={userForm.gender} onChange={(e) => setUserForm({ ...userForm, gender: e.target.value })} className="w-full border p-2 rounded">
                   <option value="">Select Gender</option>
                   <option value="male">Male</option>
                   <option value="female">Female</option>
@@ -485,20 +840,11 @@ export default function UserManagement() {
               </div>
               <div>
                 <label className="block font-medium mb-1">Date of Birth</label>
-                <input
-                  type="date"
-                  value={userForm.dob}
-                  onChange={(e) => setUserForm({ ...userForm, dob: e.target.value })}
-                  className="w-full border p-2 rounded"
-                />
+                <input type="date" value={userForm.dob} onChange={(e) => setUserForm({ ...userForm, dob: e.target.value })} className="w-full border p-2 rounded" />
               </div>
               <div>
                 <label className="block font-medium mb-1">Status</label>
-                <select
-                  value={userForm.status}
-                  onChange={(e) => setUserForm({ ...userForm, status: e.target.value })}
-                  className="w-full border p-2 rounded"
-                >
+                <select value={userForm.status} onChange={(e) => setUserForm({ ...userForm, status: e.target.value })} className="w-full border p-2 rounded">
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </select>

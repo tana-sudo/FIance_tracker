@@ -113,7 +113,14 @@ export default function AuthPage() {
 
         setMessage("Login successful! Redirecting...");
         setTimeout(() => {
-          navigate("/dashboard");
+        if (data.user.role === "admin")
+        {
+            navigate("/users");
+        }
+        else
+        {
+        navigate("/dashboard");
+        }
         }, 1000);
       } else if (!isLogin) {
         // ✅ SIGN-UP logic

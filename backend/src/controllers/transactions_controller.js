@@ -1,9 +1,11 @@
+import e from 'express';
 import { logUserAction } from '../middlewares/logHelper.js';
 import {
   insertTransaction,
   getTransactionsByUser,
   updateTransactionData,
-  deleteTransactionData
+  deleteTransactionData,
+  getAllTransactionsModel
 } from '../models/transaction_model.js';
 
 
@@ -70,4 +72,14 @@ export const removeTransaction = async (req, res) => {
     console.error('❌ Error deleting transaction:', error.message);
     return res.status(500).json({ error: 'Internal server error' });
   }
+};
+
+export const getAllTransactions = async (req, res) => {
+  try {
+    const transactions = await getAllTransactionsModel(); // ✅ Call the model function
+    return res.status(200).json(transactions);
+  } catch (error) {
+    console.error('❌ Error fetching all transactions:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }   
 };

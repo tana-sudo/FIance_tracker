@@ -69,3 +69,23 @@ export const deleteCategoryData = async (category_id) => {
   );
   return result.rows[0];
 };
+
+export const getAllCategoriesModel = async () => {
+  const result = await con.query(
+    `SELECT category_id, user_id, name, type, created_at, updated_at  
+      FROM categories
+      ORDER BY name ASC`
+  );
+  return result.rows;
+};
+
+// Fetch a single category by ID (used for ownership verification)
+export const getCategoryById = async (category_id) => {
+  const result = await con.query(
+    `SELECT category_id, user_id, name, type
+     FROM categories
+     WHERE category_id = $1`,
+    [category_id]
+  );
+  return result.rows[0];
+};

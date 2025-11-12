@@ -77,21 +77,33 @@ export const listUsers = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   } 
 }
+      
 
 export const updateUser = async (req, res) => {
   try {
     const id = req.params.id;
-    const { username, fname, email, role, gender , dob  } = req.body;
+    const { username, fname, email, role, gender, dob, status } = req.body;
+    // Validate required fields
+    if (!username || !fname || !email) {
+      console.error('Missing required fields');
+      return res.status(400).json({ error: "Username, name, and email are required" });
+    }
     
     await logUserAction(req, 'UPDATE_USER', `User ${id} updated their profile`);
-    //update details
-    const upUser = await update_User(id,username, fname, email, role , gender , dob);
-
-    // ✅ Return clean JSON
+    
+    console.log('Calling update_User...');
+    const upUser = await update_User(id, username, fname, email, role, gender, dob, status);
+    
+    console.log('Update successful:', upUser);
     return res.status(200).json(upUser);
   } catch (error) {
     console.error("❌ Error updating user:", error.message);
-    return res.status(500).json({ error: "Internal server error" });
+    console.error("Full error:", error);
+    console.error("Stack:", error.stack);
+    return res.status(500).json({ 
+      error: "Internal server error", 
+      details: error.message 
+    });
   }
 };
 
