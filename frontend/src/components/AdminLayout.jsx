@@ -18,7 +18,12 @@ export default function AdminLayout({ children }) {
     }
 
     try {
-      setAdmin(JSON.parse(adminData));
+      const parsed = JSON.parse(adminData);
+      setAdmin(parsed);
+      // Enforce admin-only access for admin layout
+      if (parsed?.role !== "admin") {
+        navigate("/dashboard", { replace: true });
+      }
     } catch (error) {
       console.error("Error parsing admin data:", error);
       navigate("/", { replace: true });
@@ -36,9 +41,8 @@ export default function AdminLayout({ children }) {
     { name: "User Management", icon: Users, path: "/users" },
     { name: "Transactions", icon: ArrowUpDown, path: "/transaction" },
     { name: "Categories", icon: Tag, path: "/category" },
-     {name: "Activities", icon: Shield, path: "/activites" },
+    { name: "Activity Logs", icon: Shield, path: "/activity" },
     { name: "Reports", icon: FileText, path: "/report" },
-   
   ];
 
   // Navigate to a tab

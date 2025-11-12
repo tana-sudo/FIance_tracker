@@ -11,6 +11,7 @@ import UserManagement from "./admin/UserManagement";
 import CategoryManagement from "./admin/CategoryManagement";
 import TransactionManagement from "./admin/TransactionManagement";
 import AdminReports from "./admin/AdminReports";
+import ActivityLogs from "./admin/ActivityLogs";
 import { Toaster } from "react-hot-toast";
 import { Navigate } from "react-router-dom";
 
@@ -32,6 +33,7 @@ function App() {
             <Route path="/category" element={<AdminLayout><CategoryManagement /></AdminLayout>} />
             <Route path="/transaction"element={<AdminLayout><TransactionManagement /></AdminLayout>} />
             <Route path="/report" element={<AdminLayout><AdminReports /></AdminLayout>}/>
+            <Route path="/activity" element={<AdminLayout><ActivityLogs /></AdminLayout>} />
          
         </Routes>
       </Router>

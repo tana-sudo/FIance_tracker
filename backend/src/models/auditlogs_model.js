@@ -41,3 +41,17 @@ export const getAuditLogsByUser = async (user_id) => {
   return result.rows;
 };
 
+// Get all audit logs (admin overview)
+export const getAllAuditLogs = async (limit = 500) => {
+  const result = await pool.query(
+    `SELECT a.log_id, a.user_id, a.action, a.detail, a.timestamp,
+            u.username, u.name, u.role
+     FROM auditlogs a
+     LEFT JOIN users u ON a.user_id = u.id
+     ORDER BY a.timestamp DESC
+     LIMIT $1`,
+    [limit]
+  );
+  return result.rows;
+};
+
