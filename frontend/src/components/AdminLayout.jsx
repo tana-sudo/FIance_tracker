@@ -1,34 +1,20 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Users, ArrowUpDown, Tag, FileText, LogOut, Shield } from "lucide-react";
+import useRoleGuard from "../hooks/useRoleGuard";
 
 export default function AdminLayout({ children }) {
   const [admin, setAdmin] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Load admin from localStorage
+  // Enforce admin-only access using shared hook
+  const { user, isAllowed, checked } = useRoleGuard(["admin"], { redirectTo: "/users" });
   useEffect(() => {
-    const adminData = localStorage.getItem("user");
-    const token = localStorage.getItem("accessToken");
-
-    if (!adminData || !token) {
-      navigate("/", { replace: true });
-      return;
+    if (checked && user) {
+      setAdmin(user);
     }
-
-    try {
-      const parsed = JSON.parse(adminData);
-      setAdmin(parsed);
-      // Enforce admin-only access for admin layout
-      if (parsed?.role !== "admin") {
-        navigate("/dashboard", { replace: true });
-      }
-    } catch (error) {
-      console.error("Error parsing admin data:", error);
-      navigate("/", { replace: true });
-    }
-  }, [navigate]);
+  }, [checked, user]);
 
   const handleLogout = () => {
     localStorage.removeItem("accessToken");
@@ -120,7 +106,7 @@ export default function AdminLayout({ children }) {
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-6">
-        {children}
+        {isAllowed ? children : null}
       </main>
     </div>
   );

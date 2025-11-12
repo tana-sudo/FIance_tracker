@@ -8,28 +8,20 @@ import {
   FileText, 
   LogOut
 } from "lucide-react";
+import useRoleGuard from "../hooks/useRoleGuard";
 
 export default function Layout({ children }) {
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Enforce user-only access for standard app layout
+  const { user: currentUser, isAllowed, checked } = useRoleGuard(["user"], { redirectTo: "/dashboard" });
   useEffect(() => {
-    const userData = localStorage.getItem("user");
-    const token = localStorage.getItem("accessToken");
-
-    if (!userData || !token) {
-      navigate("/");
-      return;
+    if (checked && currentUser) {
+      setUser(currentUser);
     }
-
-    try {
-      setUser(JSON.parse(userData));
-    } catch (error) {
-      console.error("Error parsing user data:", error);
-      navigate("/");
-    }
-  }, [navigate]);
+  }, [checked, currentUser]);
 
   const handleLogout = () => {
     localStorage.removeItem("accessToken");
@@ -46,7 +38,7 @@ export default function Layout({ children }) {
     { name: 'Reports', icon: FileText, path: '/reports' }, 
   ];
 
-  if (!user) {
+  if (!user || !isAllowed) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="flex flex-col items-center gap-3">
