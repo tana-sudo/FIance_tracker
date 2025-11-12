@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Plus, Pencil, Trash2, Search, X, Calendar } from "lucide-react";
 import toast from "react-hot-toast";
+import * as XLSX from "xlsx";
+import Papa from "papaparse";
 
 export default function Transactions() {
   const API_ROOT = "http://localhost:3000/api";
@@ -24,12 +26,169 @@ export default function Transactions() {
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (!user?.id) return;
     fetchCategories();
     fetchTransactions();
   }, [user.id]);
+
+  const openImportDialog = () => {
+    fileInputRef.current?.click();
+  };
+
+  const downloadTemplate = () => {
+    try {
+      const headers = ["Date", "Description", "Category", "Type", "Amount"];
+      const csvContent = headers.join(",") + "\n";
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "transactions_template.csv";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("❌ Template download error:", err);
+      toast.error("Failed to download template");
+    }
+  };
+
+  const normalizeDateMMDDYYYY = (input) => {
+    try {
+      if (!input) return null;
+      const s = String(input).trim();
+      const mmdd = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
+      if (mmdd.test(s)) return s;
+      const iso = /^\d{4}-\d{2}-\d{2}$/;
+      if (iso.test(s)) {
+        const [y, m, d] = s.split("-");
+        return `${m}/${d}/${y}`;
+      }
+      const ddmm = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
+      if (ddmm.test(s)) {
+        const [d, m, y] = s.split("/");
+        if (parseInt(d, 10) > 12) return `${m}/${d}/${y}`;
+      }
+      const dt = new Date(s);
+      if (!isNaN(dt)) {
+        const mm = String(dt.getMonth() + 1).padStart(2, "0");
+        const dd = String(dt.getDate()).padStart(2, "0");
+        const yy = dt.getFullYear();
+        return `${mm}/${dd}/${yy}`;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleImportFile = async (e) => {
+    try {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const name = file.name.toLowerCase();
+      const isCSV = name.endsWith(".csv");
+
+      const mapRowsToRecords = (rows) =>
+        rows.map((r) => ({
+          Date:
+            normalizeDateMMDDYYYY(
+              r.Date ?? r.date ?? r.DATE ?? r["Date"] ?? r["date"]
+            ) || "",
+          Description: (r.Description ?? r.description ?? r.DESCRIPTION ?? r["Description"] ?? r["description"] ?? "").toString(),
+          Category: (r.Category ?? r.category ?? r.CATEGORY ?? r["Category"] ?? r["category"] ?? "").toString(),
+          Type: (r.Type ?? r.type ?? r.TYPE ?? r["Type"] ?? r["type"] ?? "").toString(),
+          Amount: r.Amount ?? r.amount ?? r.AMOUNT ?? r["Amount"] ?? r["amount"] ?? "",
+        }));
+
+      const sendImport = async (records) => {
+        const valid = records.filter(
+          (r) => r.Date && r.Type && r.Amount !== "" && !isNaN(parseFloat(r.Amount)) && r.Category
+        );
+        if (valid.length === 0) {
+          toast.error("No valid records found. Ensure columns: Date, Description, Category, Type, Amount");
+          return;
+        }
+        const res = await fetch(`${API_ROOT}/transactions/import`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ records: valid }),
+        });
+        const raw = await res.text();
+        let respData = null;
+        try {
+          respData = JSON.parse(raw);
+        } catch {
+          respData = null;
+        }
+        if (!res.ok) {
+          const msg = respData?.error || (raw?.startsWith("<") ? `Endpoint not found (${res.status})` : raw || "Import failed");
+          throw new Error(msg);
+        }
+        const insertedCount = respData?.insertedCount ?? 0;
+        const errorCount = respData?.errorCount ?? 0;
+        toast.success(`Imported ${insertedCount} records${errorCount ? `, ${errorCount} errors` : ""}`);
+        e.target.value = "";
+        // Refresh categories as imports may create new ones
+        await fetchCategories();
+        await fetchTransactions();
+      };
+
+      if (isCSV) {
+        Papa.parse(file, {
+          header: true,
+          skipEmptyLines: true,
+          complete: async (results) => {
+            try {
+              const rows = Array.isArray(results.data) ? results.data : [];
+              if (rows.length === 0) {
+                toast.error("No rows found in CSV");
+                e.target.value = "";
+                return;
+              }
+              const records = mapRowsToRecords(rows);
+              await sendImport(records);
+            } catch (err) {
+              console.error("❌ CSV import error:", err);
+              toast.error(err?.message || "Failed to import CSV");
+            }
+          },
+          error: (err) => {
+            console.error("❌ CSV parse error:", err);
+            toast.error("Failed to parse CSV file");
+          },
+        });
+      } else {
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          try {
+            const fileData = new Uint8Array(evt.target.result);
+            const wb = XLSX.read(fileData, { type: "array" });
+            const sheetName = wb.SheetNames[0];
+            const sheet = wb.Sheets[sheetName];
+            const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+            if (!Array.isArray(rows) || rows.length === 0) {
+              toast.error("No rows found in the file");
+              return;
+            }
+            const records = mapRowsToRecords(rows);
+            await sendImport(records);
+          } catch (err) {
+            console.error("❌ Import parse error:", err?.message || err);
+            toast.error(err?.message || "Failed to parse file");
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      }
+    } catch (err) {
+      console.error("❌ Import error:", err?.message || err);
+      toast.error(err?.message || "Import failed");
+    }
+  };
 
   const fetchCategories = async () => {
     try {
@@ -209,6 +368,19 @@ export default function Transactions() {
               {t.charAt(0).toUpperCase() + t.slice(1)}
             </button>
           ))}
+          <button onClick={downloadTemplate} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800">
+            Template
+          </button>
+          <button onClick={openImportDialog} className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
+            Import
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={handleImportFile}
+          />
         </div>
       </div>
 

@@ -35,6 +35,27 @@ export const insertCategory = async (user_id, name, type) => {
   return result.rows[0];
 };
 
+// Find category by user and name (case-insensitive)
+export const getCategoryByNameForUser = async (user_id, name) => {
+  const result = await con.query(
+    `SELECT category_id, user_id, name, type
+     FROM categories
+     WHERE user_id = $1 AND LOWER(name) = LOWER($2)
+     LIMIT 1`,
+    [user_id, name]
+  );
+  return result.rows[0] || null;
+};
+
+// Ensure a category exists for the user, creating it if missing
+export const ensureCategoryByName = async (user_id, name, type) => {
+  const existing = await getCategoryByNameForUser(user_id, name);
+  if (existing) return existing;
+  // Default type to 'expense' if invalid
+  type = 'Personal';
+  return await insertCategory(user_id, name, type);
+};
+
 // Get all categories for a user
 export const getCategoriesByUser = async (user_id) => {
   const result = await con.query(

@@ -8,6 +8,7 @@ import {
   getAllTransactionsModel
 } from '../models/transaction_model.js';
 import { evaluateUserBudgetNotifications } from './notification_controller.js';
+import { ensureCategoryByName } from '../models/categories_model.js';
 
 
 
@@ -103,4 +104,98 @@ export const getAllTransactions = async (req, res) => {
     console.error('❌ Error fetching all transactions:', error.message);
     return res.status(500).json({ error: 'Internal server error' });
   }   
+};
+
+// --- Bulk import transactions ---
+const normalizeDateToMMDDYYYY = (input) => {
+  try {
+    if (!input) return null;
+    const s = String(input).trim();
+    // If already MM/DD/YYYY
+    const mmdd = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
+    if (mmdd.test(s)) return s;
+    // ISO YYYY-MM-DD -> MM/DD/YYYY
+    const iso = /^\d{4}-\d{2}-\d{2}$/;
+    if (iso.test(s)) {
+      const [y, m, d] = s.split('-');
+      return `${m}/${d}/${y}`;
+    }
+    // DD/MM/YYYY -> MM/DD/YYYY (assume swap)
+    const ddmm = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
+    if (ddmm.test(s)) {
+      const [d, m, y] = s.split('/');
+      // If first part > 12, definitely day-first
+      if (parseInt(d, 10) > 12) return `${m}/${d}/${y}`;
+      // Ambiguous; prefer treating input as given if already MM/DD/YYYY above.
+    }
+    // Fallback: try Date parsing
+    const dt = new Date(s);
+    if (!isNaN(dt)) {
+      const mm = String(dt.getMonth() + 1).padStart(2, '0');
+      const dd = String(dt.getDate()).padStart(2, '0');
+      const yy = dt.getFullYear();
+      return `${mm}/${dd}/${yy}`;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+export const importTransactions = async (req, res) => {
+  try {
+    const user_id = req.user?.id;
+    const { records } = req.body;
+    if (!user_id || !Array.isArray(records) || records.length === 0) {
+      return res.status(400).json({ error: 'No records to import.' });
+    }
+
+    const inserted = [];
+    const errors = [];
+
+    for (let i = 0; i < records.length; i++) {
+      const r = records[i] || {};
+      const rawDate = r.Date ?? r.date;
+      const description = (r.Description ?? r.description ?? '').toString();
+      const categoryName = (r.Category ?? r.category ?? '').toString();
+      const typeRaw = (r.Type ?? r.type ?? '').toString().toLowerCase();
+      const amountRaw = r.Amount ?? r.amount;
+
+      const date = normalizeDateToMMDDYYYY(rawDate);
+      const type = typeRaw === 'income' ? 'income' : typeRaw === 'expense' ? 'expense' : null;
+      const amount = parseFloat(amountRaw);
+
+      if (!date || !type || !amount || isNaN(amount)) {
+        errors.push({ index: i, error: 'Invalid date/type/amount' });
+        continue;
+      }
+      if (!categoryName) {
+        errors.push({ index: i, error: 'Missing category name' });
+        continue;
+      }
+
+      try {
+        const category = await ensureCategoryByName(user_id, categoryName, type);
+        const tx = await insertTransaction(user_id, amount, type, category.category_id, description, date);
+        inserted.push(tx);
+      } catch (e) {
+        errors.push({ index: i, error: e.message });
+      }
+    }
+
+    // Evaluate budgets once if there are any expenses imported
+    try {
+      if (inserted.some(t => t.type === 'expense')) {
+        await evaluateUserBudgetNotifications(user_id);
+      }
+    } catch (e) {
+      console.warn('⚠️ Budget notification evaluation failed:', e.message);
+    }
+
+    await logUserAction(req, 'IMPORT_TRANSACTIONS', `User ${user_id} imported ${inserted.length} transactions (${errors.length} errors).`);
+    return res.status(200).json({ insertedCount: inserted.length, errorCount: errors.length, errors });
+  } catch (error) {
+    console.error('❌ Error importing transactions:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 };
