@@ -6,6 +6,7 @@ import {
   getBudgetsWithSummary
 } from '../models/budget_model.js';
 import { logUserAction } from '../middlewares/logHelper.js';
+import { evaluateUserBudgetNotifications } from './notification_controller.js';
 // Add new budget
 export const addBudget = async (req, res) => {
   try {
@@ -17,6 +18,11 @@ export const addBudget = async (req, res) => {
     }
     await logUserAction(req, 'ADD_BUDGET', `User ${user_id} added a budget of ${amount} for category ${category_id}`);
     const newBudget = await insertBudget(user_id, category_id, amount, start_date, end_date);
+    try {
+      await evaluateUserBudgetNotifications(user_id);
+    } catch (e) {
+      console.warn('⚠️ Budget notification evaluation failed:', e.message);
+    }
     res.status(201).json(newBudget);
   } catch (error) {
     console.error('❌ Error adding budget:', error.message);
@@ -45,6 +51,11 @@ export const updateBudget = async (req, res) => {
     await logUserAction(req, 'UPDATE_BUDGET', `User ${user_id} updated budget ${budget_id} to amount ${amount}`);
     const updatedBudget = await updateBudgetData(budget_id, amount, start_date, end_date);
     if (!updatedBudget) return res.status(404).json({ message: 'Budget not found.' });
+    try {
+      await evaluateUserBudgetNotifications(user_id);
+    } catch (e) {
+      console.warn('⚠️ Budget notification evaluation failed:', e.message);
+    }
     res.status(200).json(updatedBudget);
   } catch (error) {
     console.error('❌ Error updating budget:', error.message);
@@ -60,6 +71,11 @@ export const removeBudget = async (req, res) => {
     await logUserAction(req, 'DELETE_BUDGET', `User ${user_id} deleted budget ${budget_id}`);
     const deletedBudget = await deleteBudgetData(budget_id);
     if (!deletedBudget) return res.status(404).json({ message: 'Budget not found.' });
+    try {
+      await evaluateUserBudgetNotifications(user_id);
+    } catch (e) {
+      console.warn('⚠️ Budget notification evaluation failed:', e.message);
+    }
     res.status(200).json(deletedBudget);
   } catch (error) {
     console.error('❌ Error deleting budget:', error.message);

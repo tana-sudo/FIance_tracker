@@ -7,6 +7,7 @@ import {
   deleteTransactionData,
   getAllTransactionsModel
 } from '../models/transaction_model.js';
+import { evaluateUserBudgetNotifications } from './notification_controller.js';
 
 
 
@@ -20,6 +21,14 @@ export const addTransaction = async (req, res) => {
     }
     await logUserAction(req, 'ADD_TRANSACTION', `User ${user_id} added a ${type} transaction of amount ${amount} on ${date}`);
     const newTransaction = await insertTransaction(user_id, amount, type, category_id, description, date);
+    // Evaluate budget notifications on expense entries
+    try {
+      if (type === 'expense') {
+        await evaluateUserBudgetNotifications(user_id);
+      }
+    } catch (e) {
+      console.warn('⚠️ Budget notification evaluation failed:', e.message);
+    }
     return res.status(201).json(newTransaction);
   } catch (error) {
     console.error('❌ Error adding transaction:', error.message);
@@ -50,6 +59,12 @@ export const updateTransaction = async (req, res) => {
       return res.status(404).json({ error: 'Transaction not found.' });
     }
     await logUserAction(req, 'UPDATE_TRANSACTION', `User ${user_id} updated transaction ${transaction_id} to amount ${amount}, type ${type}, date ${date}`);
+    // Re-evaluate budgets after update (if affects expenses)
+    try {
+      await evaluateUserBudgetNotifications(user_id);
+    } catch (e) {
+      console.warn('⚠️ Budget notification evaluation failed:', e.message);
+    }
     return res.status(200).json(updatedTransaction);
   } catch (error) {
     console.error('❌ Error updating transaction:', error.message);
@@ -67,6 +82,12 @@ export const removeTransaction = async (req, res) => {
       return res.status(404).json({ error: 'Transaction not found.' });
     }
     await logUserAction(req, 'DELETE_TRANSACTION', `User ${user_id} deleted transaction ${transaction_id}`);
+    // Re-evaluate budgets after deletion
+    try {
+      await evaluateUserBudgetNotifications(user_id);
+    } catch (e) {
+      console.warn('⚠️ Budget notification evaluation failed:', e.message);
+    }
     return res.status(200).json(deletedTransaction);
   } catch (error) {
     console.error('❌ Error deleting transaction:', error.message);

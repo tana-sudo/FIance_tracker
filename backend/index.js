@@ -10,6 +10,7 @@ import authRoutes from '../backend/src/routes/auth_routes.js';
 import transactionRoutes from '../backend/src/routes/transactions_routes.js';
 import budgetRoutes from '../backend/src/routes/budget_routes.js';
 import auditLogRoutes from '../backend/src/routes/auditlogs_routes.js';
+import notificationRoutes from '../backend/src/routes/notifications_routes.js';
 
 dotenv.config();
 const app = express();
@@ -25,6 +26,8 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/budgets', budgetRoutes);
 console.log('[Mount] /api/auditlogs routes');
 app.use('/api/auditlogs', auditLogRoutes);
+console.log('[Mount] /api/notifications routes');
+app.use('/api/notifications', notificationRoutes);
 
 
 app.listen(port, () => {

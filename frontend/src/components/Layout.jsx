@@ -6,9 +6,11 @@ import {
   Target, 
   Tag, 
   FileText, 
+  Bell,
   LogOut
 } from "lucide-react";
 import useRoleGuard from "../hooks/useRoleGuard";
+import Notifications from "./Notifications";
 
 export default function Layout({ children }) {
   const [user, setUser] = useState(null);
@@ -35,6 +37,7 @@ export default function Layout({ children }) {
     { name: 'Transactions', icon: ArrowUpDown, path: '/transactions' },
     { name: 'Budgets', icon: Target, path: '/budgets' },
     { name: 'Categories', icon: Tag, path: '/categories' },
+    { name: 'Notifications', icon: Bell, path: '/notifications' },
     { name: 'Reports', icon: FileText, path: '/reports' }, 
   ];
 
@@ -66,6 +69,9 @@ export default function Layout({ children }) {
               </p>
               <p className="text-xs text-gray-500 truncate">{user.email}</p>
             </div>
+          </div>
+          <div className="mt-3">
+            <Notifications />
           </div>
         </div>
 
