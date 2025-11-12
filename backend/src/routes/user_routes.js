@@ -1,6 +1,7 @@
 import express from 'express';
-import { registerUser,updateUser,removeUser,listUsers} from '../controllers/users_controller.js';  
+import { registerUser,updateUser,removeUser,listUsers, getMe, updateMe} from '../controllers/users_controller.js';  
 import { validateNewUser } from '../middlewares/uservalidation_middleware.js';  
+import { verifyToken } from '../middlewares/auth_middleware.js';
 import '../models/user_model.js'; 
 const router = express.Router();
 
@@ -13,4 +14,7 @@ router.get('/getUsers',listUsers);
 router.put('/updateuser/:id',updateUser);
 
 router.delete('/deleteuser/:id',removeUser);
+// Current user profile endpoints
+router.get('/me', verifyToken, getMe);
+router.put('/me', verifyToken, updateMe);
 export default router;

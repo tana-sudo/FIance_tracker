@@ -5,7 +5,8 @@ import {
   deleteUser,
   findUserByEmail,
   findUserByUsername,
-  getAllUsers
+  getAllUsers,
+  findUserById
 } from '../models/user_model.js';
 import bcrypt from 'bcryptjs';
 
@@ -119,6 +120,40 @@ export const removeUser = async (req, res) => {
   } catch (error) {
     console.error("❌ Error deleting user:", error.message);
     return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// ✅ Get current user's profile (requires token)
+export const getMe = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    const user = await findUserById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    return res.status(200).json(user);
+  } catch (error) {
+    console.error('❌ Error fetching current user:', error.message);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// ✅ Update current user's profile (requires token)
+export const updateMe = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const { username, fname, email, role, gender, dob, status } = req.body;
+    if (!username || !fname || !email) {
+      return res.status(400).json({ error: 'Username, name, and email are required' });
+    }
+
+    await logUserAction(req, 'UPDATE_PROFILE', `User ${userId} updated their profile`);
+    const updated = await update_User(userId, username, fname, email, role, gender, dob, status);
+    return res.status(200).json(updated);
+  } catch (error) {
+    console.error('❌ Error updating current user:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 

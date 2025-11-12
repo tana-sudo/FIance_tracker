@@ -55,7 +55,13 @@ export default function AdminLayout({ children }) {
         {/* Logo & Admin Info */}
         <div className="p-6 border-b border-gray-200">
           <h1 className="text-2xl font-bold text-blue-600 mb-1">Admin Panel</h1>
-          <div className="flex items-center gap-2 mt-3 p-2 bg-gray-50 rounded-lg">
+          <div
+            className="flex items-center gap-2 mt-3 p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors"
+            role="button"
+            tabIndex={0}
+            onClick={() => handleNavigation('/profile')}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleNavigation('/profile'); }}
+          >
             <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
               {(admin.name?.[0] || admin.username?.[0] || "A").toUpperCase()}
             </div>

@@ -400,7 +400,7 @@ export default function AdminReports() {
           <div>
             <p className="text-gray-600 text-sm">Avg Transaction</p>
             <p className="text-2xl font-bold">
-              ${(filteredTransactions.reduce((sum, t) => sum + parseFloat(t.amount), 0) / filteredTransactions.length || 0).toFixed(2)}
+              BWP {(filteredTransactions.reduce((sum, t) => sum + parseFloat(t.amount), 0) / filteredTransactions.length || 0).toFixed(2)}
             </p>
           </div>
         </div>
@@ -408,16 +408,16 @@ export default function AdminReports() {
         <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="border-l-4 border-green-500 pl-4">
             <p className="text-sm text-gray-600">Total Income</p>
-            <p className="text-xl font-bold text-green-600">${totalIncome.toFixed(2)}</p>
+            <p className="text-xl font-bold text-green-600">BWP {totalIncome.toFixed(2)}</p>
           </div>
           <div className="border-l-4 border-red-500 pl-4">
             <p className="text-sm text-gray-600">Total Expenses</p>
-            <p className="text-xl font-bold text-red-600">${totalExpense.toFixed(2)}</p>
+            <p className="text-xl font-bold text-red-600">BWP {totalExpense.toFixed(2)}</p>
           </div>
           <div className="border-l-4 border-blue-500 pl-4">
             <p className="text-sm text-gray-600">Net Balance</p>
             <p className={`text-xl font-bold ${netBalance >= 0 ? "text-blue-600" : "text-red-600"}`}>
-              ${netBalance.toFixed(2)}
+              BWP {netBalance.toFixed(2)}
             </p>
           </div>
         </div>

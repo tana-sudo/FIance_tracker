@@ -7,7 +7,8 @@ import {
   Tag, 
   FileText, 
   Bell,
-  LogOut
+  LogOut,
+  User
 } from "lucide-react";
 import useRoleGuard from "../hooks/useRoleGuard";
 import Notifications from "./Notifications";
@@ -39,6 +40,7 @@ export default function Layout({ children }) {
     { name: 'Categories', icon: Tag, path: '/categories' },
     { name: 'Notifications', icon: Bell, path: '/notifications' },
     { name: 'Reports', icon: FileText, path: '/reports' }, 
+  
   ];
 
   if (!user || !isAllowed) {
@@ -59,7 +61,13 @@ export default function Layout({ children }) {
         {/* Logo/Brand */}
         <div className="p-6 border-b border-gray-200">
           <h1 className="text-2xl font-bold text-blue-600 mb-1">Finance Tracker</h1>
-          <div className="flex items-center gap-2 mt-3 p-2 bg-gray-50 rounded-lg">
+          <div
+            className="flex items-center gap-2 mt-3 p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors"
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate('/profile')}
+            onKeyDown={(e) => { if (e.key === 'Enter') navigate('/profile'); }}
+          >
             <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
               {((user.fname || user.name || user.username || 'U')[0]).toUpperCase()}
             </div>

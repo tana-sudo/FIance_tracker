@@ -6,6 +6,7 @@ import Categories from "./pages/Categories";
 import Budgets from "./pages/Budgets";
 import Reports from "./pages/Reports";  
 import NotificationsPage from "./pages/NotificationsPage";
+import Profile from "./pages/Profile";
 import Layout from "./components/Layout";
 import AdminLayout from "./components/AdminLayout";
 import UserManagement from "./admin/UserManagement";
@@ -29,6 +30,7 @@ function App() {
           <Route path="/budgets" element={<Layout><Budgets /></Layout>} />
           <Route path="/reports" element={<Layout><Reports /></Layout>} /> 
           <Route path="/notifications" element={<Layout><NotificationsPage /></Layout>} />
+          <Route path="/profile" element={<Layout><Profile /></Layout>} />
 
            {/* Additional admin routes can be added here */}
             < Route path="/users" element={<AdminLayout><UserManagement /></AdminLayout>}/>

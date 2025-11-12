@@ -84,6 +84,16 @@ export const findUserByUsername = async (username) => {
   return result.rows[0];
 };
 
+// ✅ Find user by ID (clean field names)
+export const findUserById = async (id) => {
+  const result = await pool.query(
+    `SELECT id, username, name, email, role, gender, dob, status, created_at AS "createdAt"
+     FROM users WHERE id = $1`,
+    [id]
+  );
+  return result.rows[0];
+};
+
 // ✅ Login
 export const loginUserByEmail = async (email, password) => {
   const result = await pool.query(
