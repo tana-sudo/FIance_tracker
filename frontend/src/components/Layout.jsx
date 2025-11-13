@@ -60,7 +60,7 @@ export default function Layout({ children }) {
       <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
         {/* Logo/Brand */}
         <div className="p-6 border-b border-gray-200">
-          <h1 className="text-2xl font-bold text-blue-600 mb-1">Finance Tracker</h1>
+          <h1 className="text-2xl font-bold text-blue-600 mb-1">Euna</h1>
           <div
             className="flex items-center gap-2 mt-3 p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors"
             role="button"
