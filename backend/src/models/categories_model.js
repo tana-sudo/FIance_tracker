@@ -47,10 +47,26 @@ export const getCategoryByNameForUser = async (user_id, name) => {
   return result.rows[0] || null;
 };
 
+// Find a category visible to user by name (checks user's own and Global)
+export const getCategoryByNameVisibleToUser = async (user_id, name) => {
+  const result = await con.query(
+    `SELECT category_id, user_id, name, type
+     FROM categories
+     WHERE (user_id = $1 OR type = 'Global') AND LOWER(name) = LOWER($2)
+     ORDER BY type = 'Global' DESC
+     LIMIT 1`,
+    [user_id, name]
+  );
+  return result.rows[0] || null;
+};
+
 // Ensure a category exists for the user, creating it if missing
 export const ensureCategoryByName = async (user_id, name, type) => {
-  const existing = await getCategoryByNameForUser(user_id, name);
-  if (existing) return existing;
+  // Prefer existing user-owned category, otherwise reuse a Global one
+  const existingUser = await getCategoryByNameForUser(user_id, name);
+  if (existingUser) return existingUser;
+  const existingVisible = await getCategoryByNameVisibleToUser(user_id, name);
+  if (existingVisible) return existingVisible;
   // Default type to 'expense' if invalid
   type = 'Personal';
   return await insertCategory(user_id, name, type);

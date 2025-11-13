@@ -157,7 +157,12 @@ export const importTransactions = async (req, res) => {
       const r = records[i] || {};
       const rawDate = r.Date ?? r.date;
       const description = (r.Description ?? r.description ?? '').toString();
-      const categoryName = (r.Category ?? r.category ?? '').toString();
+      let categoryName = (r.Category ?? r.category ?? '').toString();
+      categoryName = categoryName.trim();
+      if (!categoryName) {
+        errors.push({ index: i, error: 'Missing category name' });
+        continue;
+      }
       const typeRaw = (r.Type ?? r.type ?? '').toString().toLowerCase();
       const amountRaw = r.Amount ?? r.amount;
 
@@ -169,10 +174,7 @@ export const importTransactions = async (req, res) => {
         errors.push({ index: i, error: 'Invalid date/type/amount' });
         continue;
       }
-      if (!categoryName) {
-        errors.push({ index: i, error: 'Missing category name' });
-        continue;
-      }
+      // categoryName already validated above
 
       try {
         const category = await ensureCategoryByName(user_id, categoryName, type);

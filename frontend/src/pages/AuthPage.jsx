@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toast } from "react-hot-toast";
 import { Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -69,6 +70,7 @@ export default function AuthPage() {
 
     if (!validateForm()) {
       setMessage("Please fix the errors in the form.");
+      toast.error("Please fix the errors in the form.");
       return;
     }
 
@@ -112,6 +114,7 @@ export default function AuthPage() {
         localStorage.setItem("user", JSON.stringify(data.user));
 
         setMessage("Login successful! Redirecting...");
+        toast.success("Login successful!");
         setTimeout(() => {
         if (data.user.role === "admin")
         {
@@ -125,6 +128,7 @@ export default function AuthPage() {
       } else if (!isLogin) {
         // ✅ SIGN-UP logic
         setMessage("Account created successfully! Please login.");
+        toast.success("Account created successfully! Please login.");
         setTimeout(() => {
           setIsLogin(true);
           setFormData({});
@@ -135,6 +139,7 @@ export default function AuthPage() {
       }
     } catch (err) {
       setMessage(err.message);
+      toast.error(err.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
